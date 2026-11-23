@@ -110,9 +110,28 @@ th{color:var(--dim);font-size:12px;font-weight:500}
 .center-box input{width:100%;padding:14px;border-radius:12px;border:1px solid var(--glass-b);background:var(--input);color:var(--text);outline:none;font-size:14px;margin-top:12px;transition:0.3s}
 .center-box input:focus{border-color:var(--accent)}
 .center-box .btn{width:100%;margin-top:20px}
+
+/* ===== Cinematic upgrade (Sajeel Mods) ===== */
+.sm-grain{position:fixed;inset:0;pointer-events:none;z-index:200;opacity:.05;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E")}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(600px 300px at 20% 0%, rgba(255,51,102,0.12), transparent 60%),radial-gradient(500px 300px at 85% 10%, rgba(255,180,60,0.07), transparent 60%);animation:glowDrift 14s ease-in-out infinite alternate}
+@keyframes glowDrift{from{opacity:.7;transform:translateY(0)}to{opacity:1;transform:translateY(-12px)}}
+.logo span{background-size:200% auto;animation:logoShine 5s linear infinite}
+@keyframes logoShine{to{background-position:200% center}}
+.card{animation:cardIn .45s cubic-bezier(0.4,0,0.2,1) both;animation-delay:calc(var(--i,0)*45ms)}
+@keyframes cardIn{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+.card:hover{box-shadow:0 14px 34px rgba(0,0,0,.55),0 0 0 1px rgba(255,51,102,.25),0 0 24px rgba(255,51,102,.15)}
+.chip:hover{border-color:rgba(255,51,102,.5);color:#fff}
+#toolCount b{color:#fff}
+/* Admin form fields (Add / Import / User forms) */
+#addForm label,#importForm label,#userForm label{display:block;font-size:12px;color:var(--dim);margin:16px 0 8px;font-weight:500}
+#addForm input,#addForm textarea,#addForm select,#importForm input,#importForm textarea,#userForm input{width:100%;padding:14px;border-radius:12px;border:1px solid var(--glass-b);background:var(--input);color:var(--text);outline:none;font-size:14px;transition:0.3s}
+#addForm input:focus,#addForm textarea:focus,#importForm input:focus,#importForm textarea:focus,#userForm input:focus{border-color:var(--accent)}
+#addForm textarea,#importForm textarea{min-height:90px;resize:vertical}
+@media (prefers-reduced-motion: reduce){.card{animation:none}.logo span{animation:none}body::after{animation:none}}
 </style>
 </head>
 <body>
+<div class="sm-grain" aria-hidden="true"></div>
 
 <!-- ============ LOGIN VIEW ============ -->
 <div class="wrap" id="loginView" style="display:none">
@@ -170,9 +189,12 @@ th{color:var(--dim);font-size:12px;font-weight:500}
   <div id="adminTools">
     <div class="row" style="margin-bottom:20px;margin-top:0">
       <button class="btn" onclick="showAddForm()"><i class="fa fa-plus"></i> Add Tool</button>
+      <button class="btn ghost" onclick="showImportForm()"><i class="fa fa-file-import"></i> Import JSON</button>
+      <button class="btn ghost" onclick="exportToolsJSON()"><i class="fa fa-file-export"></i> Export JSON</button>
       <button class="btn ghost" onclick="exportHTML()"><i class="fa fa-download"></i> Export HTML</button>
       <button class="btn ghost" onclick="resetTools()"><i class="fa fa-undo"></i> Reset</button>
     </div>
+    <div class="note" id="toolCount"></div>
     
     <div class="note" id="modeNote">Loading mode...</div>
     <div class="warn" id="firebaseRulesNote" style="display:none">
@@ -200,6 +222,15 @@ th{color:var(--dim);font-size:12px;font-weight:500}
       </select>
       <div id="linkField" style="display:none"><label>URL *</label><input id="fUrl" placeholder="https://..."></div>
       <div class="row"><button class="btn" onclick="saveTool()">Save Tool</button><button class="btn ghost" onclick="hideAddForm()">Cancel</button></div>
+    </div>
+
+    <div id="importForm" style="display:none;background:var(--card);padding:20px;border-radius:16px;margin-bottom:20px;border:1px solid var(--glass-b)">
+      <h2 style="font-size:18px;margin-bottom:8px">Import Tools (Bulk)</h2>
+      <p style="font-size:13px;color:var(--dim);line-height:1.6">JSON array paste karo ya .json file upload karo. Format: <code>[{"name":"...","desc":"...","category":"Courses","icon":"💻","type":"link","url":"https://..."}]</code><br>Naam ya link jo pehle se hai woh skip ho jayega — purane tools delete nahi honge.</p>
+      <label>JSON Text</label><textarea id="importText" placeholder='[{"name":"freeCodeCamp","desc":"Free coding...","category":"Courses","icon":"💻","type":"link","url":"https://www.freecodecamp.org"}]'></textarea>
+      <label>Ya JSON File Upload Karo</label><input id="importFile" type="file" accept=".json,application/json">
+      <div class="row"><button class="btn" onclick="importTools()"><i class="fa fa-file-import"></i> Import</button><button class="btn ghost" onclick="hideImportForm()">Cancel</button></div>
+      <div class="out" id="importOut"></div>
     </div>
 
     <table><thead><tr><th>Tool</th><th>Category</th><th>Actions</th></tr></thead><tbody id="adminList"></tbody></table>
@@ -324,7 +355,7 @@ function render(){
   const list = tools.filter(t => (activeCat==='All' || t.category===activeCat) && (!q || (t.name+' '+t.desc+' '+t.category).toLowerCase().includes(q)));
   renderChips();
   const g = document.getElementById('grid');
-  g.innerHTML = list.map(t=>`<div class="card">
+  g.innerHTML = list.map((t,i)=>`<div class="card" style="--i:${Math.min(i,8)}">
     <div class="ic">${esc(t.icon||'🛠️')}</div>
     <h3>${esc(t.name)}</h3>
     <span class="cat">${esc(t.category)}</span>
@@ -554,6 +585,8 @@ function renderAdmin(){
   const sel = document.getElementById('fCat');
   sel.innerHTML = cats().map(c=>'<option>'+esc(c)+'</option>').join('');
   document.getElementById('adminList').innerHTML = tools.map(t=>'<tr><td><b>'+esc(t.name)+'</b></td><td>'+esc(t.category)+'</td><td style="white-space:nowrap"><button class="btn small ghost" onclick="editTool(\''+t.id+'\')"><i class="fa fa-edit"></i></button> <button class="btn small danger" onclick="delTool(\''+t.id+'\')"><i class="fa fa-trash"></i></button></td></tr>').join('');
+  const tc = document.getElementById('toolCount');
+  if(tc) tc.innerHTML = '📦 <b>' + tools.length + ' tools</b> — Add, Edit, Delete ya Import se manage karo. Firebase Mode mein har change sab users ke liye live hoti hai.';
 }
 function toggleTypeFields(){ document.getElementById('linkField').style.display = document.getElementById('fType').value==='link' ? 'block' : 'none'; }
 function showAddForm(){
@@ -561,6 +594,7 @@ function showAddForm(){
   ['fName','fDesc','fCatNew','fIcon','fUrl'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('fType').value='whatsapp-link'; toggleTypeFields();
   document.getElementById('addForm').style.display='block';
+  document.getElementById('importForm').style.display='none';
 }
 function hideAddForm(){ document.getElementById('addForm').style.display='none'; }
 function editTool(id){
@@ -571,6 +605,7 @@ function editTool(id){
   document.getElementById('fIcon').value=t.icon||''; document.getElementById('fType').value=t.type;
   document.getElementById('fUrl').value=t.url||''; toggleTypeFields();
   document.getElementById('addForm').style.display='block';
+  document.getElementById('importForm').style.display='none';
 }
 function saveTool(){
   const name = document.getElementById('fName').value.trim();
@@ -619,6 +654,71 @@ function exportHTML(){
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'index.html';
   document.body.appendChild(a); a.click(); a.remove();
   render(); alert('✅ File downloaded! Deploy to Vercel.');
+}
+
+
+// ===== Bulk Import / Export JSON =====
+function showImportForm(){
+  document.getElementById('addForm').style.display='none';
+  document.getElementById('importText').value='';
+  document.getElementById('importFile').value='';
+  const o = document.getElementById('importOut'); o.classList.remove('show'); o.textContent='';
+  document.getElementById('importForm').style.display='block';
+}
+function hideImportForm(){ document.getElementById('importForm').style.display='none'; }
+function toolsJSONString(){ return JSON.stringify(tools, null, 2); }
+function downloadFile(name, text, type){
+  const blob = new Blob([text], {type: type || 'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>{ try{ URL.revokeObjectURL(a.href); }catch(e){} }, 1000);
+}
+function exportToolsJSON(){ downloadFile('sajeel-toolkit-tools.json', toolsJSONString(), 'application/json'); }
+function importToolsFromText(txt){
+  let arr;
+  try { arr = JSON.parse(txt); } catch(e){ return {ok:false, error:'Invalid JSON: ' + e.message}; }
+  if(!Array.isArray(arr)) arr = Object.values(arr);
+  if(!Array.isArray(arr)) return {ok:false, error:'JSON mein tools ki list (array) honi chahiye.'};
+  const haveName = new Set(tools.map(t=>(t.name||'').toLowerCase()));
+  const haveUrl = new Set(tools.filter(t=>t.type==='link' && t.url).map(t=>t.url));
+  let added = 0, skipped = 0, invalid = 0;
+  const fresh = [];
+  arr.forEach(item=>{
+    if(!item || typeof item !== 'object'){ invalid++; return; }
+    const name = String(item.name||'').trim();
+    const type = (item.type==='link' || ['whatsapp-link','thumbnail','qr','stylish-text','roman-urdu'].indexOf(item.type) !== -1) ? item.type : 'link';
+    const url = String(item.url||'').trim();
+    if(!name){ invalid++; return; }
+    if(type==='link' && !/^https?:\/\//.test(url)){ invalid++; return; }
+    if(haveName.has(name.toLowerCase())){ skipped++; return; }
+    if(type==='link' && url && haveUrl.has(url)){ skipped++; return; }
+    fresh.push({id:uid(), name:name, desc:String(item.desc||name).trim(), category:String(item.category||'General').trim() || 'General', icon:String(item.icon||'🛠️').trim() || '🛠️', type:type, url: type==='link' ? url : ''});
+    haveName.add(name.toLowerCase());
+    if(url) haveUrl.add(url);
+    added++;
+  });
+  if(fresh.length){ tools = tools.concat(fresh); saveTools(); renderAdmin(); render(); }
+  return {ok:true, added:added, skipped:skipped, invalid:invalid, total:tools.length};
+}
+function importTools(){
+  const ta = document.getElementById('importText');
+  const out = document.getElementById('importOut');
+  const show = msg => { out.textContent = msg; out.classList.add('show'); };
+  const file = document.getElementById('importFile').files && document.getElementById('importFile').files[0];
+  const done = txt => {
+    if(!txt || !txt.trim()){ show('❌ Pehle JSON paste karo ya file select karo.'); return; }
+    const r = importToolsFromText(txt);
+    if(!r.ok){ show('❌ ' + r.error); return; }
+    show('✅ ' + r.added + ' tools add ho gaye! ' + (r.skipped ? r.skipped + ' duplicate skip. ' : '') + (r.invalid ? r.invalid + ' invalid skip. ' : '') + 'Total: ' + r.total + ' tools.');
+  };
+  if(file){
+    const rd = new FileReader();
+    rd.onload = () => done(String(rd.result || ''));
+    rd.onerror = () => show('❌ File parhni nahi gayi.');
+    rd.readAsText(file);
+  } else {
+    done(ta.value);
+  }
 }
 
 // ===== Auth & Routing =====
@@ -750,6 +850,7 @@ if (FIREBASE_ON && fbAuth) {
   showMain();
   startFirebaseSync();
 }
+window.__SMTK = {importToolsFromText, toolsJSONString, getTools:()=>tools, render, renderAdmin, showAdmin, DEFAULT_TOOLS};
 </script>
 </body>
 </html>
