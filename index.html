@@ -246,7 +246,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
     <div class="note" id="modeNote">Loading mode...</div>
     <div class="warn" id="firebaseRulesNote" style="display:none">
       <b>🔐 Firebase Rules:</b> Copy and paste these into your Firebase Console (Realtime Database > Rules) to secure your app.
-      <pre>{"rules":{"tools":{".read":true,".write":"root.child('admins').child(auth.uid).exists()"},"stats":{".read":"root.child('admins').child(auth.uid).exists()",".write":"auth != null"},"users":{".read":"root.child('admins').child(auth.uid).exists()","$uid":{".read":"auth.uid === $uid",".write":"root.child('admins').child(auth.uid).exists()"}},"admins":{"$uid":{".read":"auth.uid === $uid"},".write":false}}}</pre>
+      <pre>{"rules":{"tools":{".read":"auth != null",".write":"auth != null && root.child('admins').child(auth.uid).exists()"},"stats":{".read":"auth != null && root.child('admins').child(auth.uid).exists()",".write":"auth != null"},"users":{".read":"auth != null && root.child('admins').child(auth.uid).exists()","$uid":{".read":"auth != null && auth.uid === $uid",".write":"auth != null && root.child('admins').child(auth.uid).exists()"}},"admins":{"$uid":{".read":"auth != null && auth.uid === $uid",".write":false}}}}</pre>
     </div>
 
     <div id="addForm" style="display:none;background:var(--card);padding:20px;border-radius:16px;margin-bottom:20px;border:1px solid var(--glass-b)">
