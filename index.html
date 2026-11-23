@@ -275,6 +275,11 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
         <option value="discount-calc">Discount Calculator</option>
         <option value="unit-converter">Unit Converter</option>
         <option value="case-converter">Text Case Converter</option>
+        <option value="stopwatch">Stopwatch</option>
+        <option value="notes">My Notes</option>
+        <option value="emi-calc">EMI Calculator</option>
+        <option value="random-gen">Random Generator</option>
+        <option value="zakat-calc">Zakat Calculator</option>
         <option value="link">Custom Link (URL)</option>
       </select>
       <div id="linkField" style="display:none"><label>URL *</label><input id="fUrl" placeholder="https://..."></div>
@@ -428,7 +433,7 @@ document.getElementById('search').addEventListener('input', render);
 
 // ===== Modal =====
 function openModal(id){ document.getElementById(id).classList.add('open'); }
-function closeModal(){ document.querySelectorAll('.modal-bg').forEach(m=>m.classList.remove('open')); }
+function closeModal(){ document.querySelectorAll('.modal-bg').forEach(m=>m.classList.remove('open')); if(typeof swTimer !== 'undefined' && swTimer){ clearInterval(swTimer); swTimer = null; } }
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click', e=>{ if(e.target===m) m.classList.remove('open'); }));
 
 function openTool(id){
@@ -453,6 +458,11 @@ function openTool(id){
   else if(t.type==='discount-calc') b.innerHTML = dcHTML();
   else if(t.type==='unit-converter') b.innerHTML = ucHTML();
   else if(t.type==='case-converter') b.innerHTML = tcHTML();
+  else if(t.type==='stopwatch') b.innerHTML = swHTML();
+  else if(t.type==='notes'){ b.innerHTML = ntHTML(); ntLoad(); }
+  else if(t.type==='emi-calc') b.innerHTML = emiHTML();
+  else if(t.type==='random-gen') b.innerHTML = rgHTML();
+  else if(t.type==='zakat-calc') b.innerHTML = zkHTML();
   else b.innerHTML = '<p style="color:var(--dim)">Is tool ki type pehchani nahi gayi.</p>';
   openModal('toolModal');
 }
@@ -806,6 +816,131 @@ function tcHTML(){
   +'<div class="row"><button class="btn ghost" onclick="copyText(document.getElementById(\'tcIn\').value,this)"><i class="fa fa-copy"></i> Copy Text</button></div>';
 }
 
+
+// ===== Built-in Tools (batch 3) =====
+let swTimer = null, swStart = 0, swElapsed = 0;
+function swTick(){
+  const el = document.getElementById('swOut');
+  if(!el) return;
+  const t = swElapsed + (swTimer ? Date.now() - swStart : 0);
+  const cs = Math.floor(t/10)%100, s = Math.floor(t/1000)%60, m = Math.floor(t/60000);
+  el.textContent = String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')+'.'+String(cs).padStart(2,'0');
+}
+function swStartFn(){
+  if(swTimer) return;
+  swStart = Date.now();
+  swTimer = setInterval(swTick, 10);
+}
+function swStopFn(){
+  if(!swTimer) return;
+  swElapsed += Date.now() - swStart;
+  clearInterval(swTimer); swTimer = null;
+  swTick();
+}
+function swResetFn(){
+  clearInterval(swTimer); swTimer = null; swElapsed = 0;
+  const el = document.getElementById('swOut'); if(el) el.textContent = '00:00.00';
+  const laps = document.getElementById('swLaps'); if(laps) laps.innerHTML = '';
+}
+function swLapFn(){
+  if(!swTimer && swElapsed === 0) return;
+  const el = document.getElementById('swOut');
+  const laps = document.getElementById('swLaps');
+  if(!el || !laps) return;
+  const n = laps.children.length + 1;
+  const div = document.createElement('div');
+  div.textContent = 'Lap ' + n + ': ' + el.textContent;
+  div.style.cssText = 'padding:8px;border-bottom:1px solid var(--glass-b);font-size:14px';
+  laps.appendChild(div);
+}
+function swHTML(){
+  return '<div id="swOut" style="font-size:42px;font-weight:800;text-align:center;letter-spacing:2px;margin:10px 0">00:00.00</div>'
+  +'<div class="row"><button class="btn" onclick="swStartFn()"><i class="fa fa-play"></i> Start</button><button class="btn ghost" onclick="swStopFn()"><i class="fa fa-pause"></i> Stop</button></div>'
+  +'<div class="row"><button class="btn small ghost" onclick="swLapFn()"><i class="fa fa-flag"></i> Lap</button><button class="btn small ghost" onclick="swResetFn()"><i class="fa fa-refresh"></i> Reset</button></div>'
+  +'<div id="swLaps" style="margin-top:12px"></div>';
+}
+function ntLoad(){
+  const list = JSON.parse(localStorage.getItem('sm_notes') || '[]');
+  document.getElementById('ntList').innerHTML = list.map((n,i)=>'<div style="display:flex;gap:8px;align-items:center;background:var(--glass);padding:10px;border-radius:10px;margin-top:8px"><span style="flex:1">'+esc(n)+'</span><button class="btn small danger" onclick="ntDel('+i+')"><i class="fa fa-trash"></i></button></div>').join('') || '<p style="color:var(--dim);font-size:13px;margin-top:10px">No notes yet.</p>';
+}
+function ntAdd(){
+  const v = document.getElementById('ntIn').value.trim();
+  if(!v) return;
+  const list = JSON.parse(localStorage.getItem('sm_notes') || '[]');
+  list.unshift(v);
+  localStorage.setItem('sm_notes', JSON.stringify(list));
+  document.getElementById('ntIn').value = '';
+  ntLoad();
+}
+function ntDel(i){
+  const list = JSON.parse(localStorage.getItem('sm_notes') || '[]');
+  list.splice(i,1);
+  localStorage.setItem('sm_notes', JSON.stringify(list));
+  ntLoad();
+}
+function ntHTML(){
+  return '<label>New Note</label><input id="ntIn" placeholder="Write a note...">'
+  +'<div class="row"><button class="btn" onclick="ntAdd()"><i class="fa fa-plus"></i> Add Note</button></div>'
+  +'<div id="ntList"></div>'
+  +'<p style="color:var(--dim);font-size:12px;margin-top:12px">Notes sirf isi phone/browser mein save hoti hain.</p>';
+}
+function emiCalc(){
+  const p = parseFloat(document.getElementById('emiP').value);
+  const r = parseFloat(document.getElementById('emiR').value);
+  const n = parseFloat(document.getElementById('emiN').value);
+  const out = document.getElementById('emiOut');
+  if(isNaN(p) || isNaN(r) || isNaN(n) || p<=0 || n<=0 || r<0){ out.className='out show'; out.textContent='❌ Amount, rate aur months sahi likho.'; return; }
+  const m = r/12/100;
+  const emi = m === 0 ? p/n : p*m*Math.pow(1+m,n)/(Math.pow(1+m,n)-1);
+  const total = emi*n;
+  out.className='out show';
+  out.innerHTML = '<b style="font-size:18px">Monthly EMI: Rs '+Math.round(emi).toLocaleString('en-US')+'</b><br><span style="color:var(--dim);font-size:13px">Total pay: Rs '+Math.round(total).toLocaleString('en-US')+' • Interest: Rs '+Math.round(total-p).toLocaleString('en-US')+'</span>';
+}
+function emiHTML(){
+  return '<label>Loan Amount (Rs)</label><input id="emiP" type="number" placeholder="e.g. 100000">'
+  +'<label>Interest Rate (% per year)</label><input id="emiR" type="number" placeholder="e.g. 12">'
+  +'<label>Months</label><input id="emiN" type="number" placeholder="e.g. 12">'
+  +'<div class="row"><button class="btn" onclick="emiCalc()"><i class="fa fa-calculator"></i> Calculate EMI</button></div><div class="out" id="emiOut"></div>';
+}
+function rgGen(){
+  const mn = parseInt(document.getElementById('rgMin').value || '1', 10);
+  const mx = parseInt(document.getElementById('rgMax').value || '100', 10);
+  const out = document.getElementById('rgOut');
+  if(isNaN(mn) || isNaN(mx) || mx <= mn){ out.className='out show'; out.textContent='❌ Min, Max sahi likho (Max > Min).'; return; }
+  const n = Math.floor(Math.random()*(mx-mn+1)) + mn;
+  out.className='out show';
+  out.innerHTML = '<b style="font-size:28px">'+n+'</b>';
+}
+function rgDice(){ document.getElementById('rgMin').value = 1; document.getElementById('rgMax').value = 6; rgGen(); }
+function rgCoin(){
+  const out = document.getElementById('rgOut');
+  out.className='out show';
+  out.innerHTML = '<b style="font-size:28px">' + (Math.random() < 0.5 ? 'Heads 👑' : 'Tails 🪙') + '</b>';
+}
+function rgHTML(){
+  return '<label>Min</label><input id="rgMin" type="number" value="1">'
+  +'<label>Max</label><input id="rgMax" type="number" value="100">'
+  +'<div class="row"><button class="btn" onclick="rgGen()"><i class="fa fa-dice"></i> Generate</button><button class="btn ghost" onclick="rgDice()">🎲 Dice</button><button class="btn ghost" onclick="rgCoin()">🪙 Coin</button></div><div class="out" id="rgOut"></div>';
+}
+function zkCalc(){
+  const cash = parseFloat(document.getElementById('zkCash').value || '0');
+  const gold = parseFloat(document.getElementById('zkGold').value || '0');
+  const silver = parseFloat(document.getElementById('zkSilver').value || '0');
+  const out = document.getElementById('zkOut');
+  const total = (isNaN(cash)?0:cash) + (isNaN(gold)?0:gold) + (isNaN(silver)?0:silver);
+  if(total <= 0){ out.className='out show'; out.textContent='❌ Koi amount likho.'; return; }
+  const zakat = total * 0.025;
+  out.className='out show';
+  out.innerHTML = '<b style="font-size:18px">Zakat: Rs '+Math.round(zakat).toLocaleString('en-US')+'</b><br><span style="color:var(--dim);font-size:13px">Total wealth: Rs '+Math.round(total).toLocaleString('en-US')+' • 2.5%</span>';
+}
+function zkHTML(){
+  return '<label>Cash / Bank (Rs)</label><input id="zkCash" type="number" placeholder="e.g. 500000">'
+  +'<label>Gold Value (Rs)</label><input id="zkGold" type="number" placeholder="e.g. 200000">'
+  +'<label>Silver / Other (Rs)</label><input id="zkSilver" type="number" placeholder="e.g. 50000">'
+  +'<div class="row"><button class="btn" onclick="zkCalc()"><i class="fa fa-mosque"></i> Calculate Zakat</button></div><div class="out" id="zkOut"></div>'
+  +'<p style="color:var(--dim);font-size:12px;margin-top:12px">Zakat 2.5% hoti hai — sirf us maal par jo nisab se zyada ho aur 1 saal guzar gaya ho. Confirm ke liye apne mufti se pooch lena.</p>';
+}
+
 // ===== Usage Analytics =====
 function recordUse(id){
   try{
@@ -995,7 +1130,7 @@ function importToolsFromText(txt){
   arr.forEach(item=>{
     if(!item || typeof item !== 'object'){ invalid++; return; }
     const name = String(item.name||'').trim();
-    const type = (item.type==='link' || ['whatsapp-link','thumbnail','qr','stylish-text','roman-urdu','password-generator','word-counter','percentage-calc','wifi-qr','color-converter','age-calc','bmi-calc','discount-calc','unit-converter','case-converter'].indexOf(item.type) !== -1) ? item.type : 'link';
+    const type = (item.type==='link' || ['whatsapp-link','thumbnail','qr','stylish-text','roman-urdu','password-generator','word-counter','percentage-calc','wifi-qr','color-converter','age-calc','bmi-calc','discount-calc','unit-converter','case-converter','stopwatch','notes','emi-calc','random-gen','zakat-calc'].indexOf(item.type) !== -1) ? item.type : 'link';
     const url = String(item.url||'').trim();
     if(!name){ invalid++; return; }
     if(type==='link' && !/^https?:\/\//.test(url)){ invalid++; return; }
@@ -1159,7 +1294,7 @@ if (FIREBASE_ON && fbAuth) {
   showMain();
   startFirebaseSync();
 }
-window.__SMTK = {importToolsFromText, toolsJSONString, getTools:()=>tools, render, renderAdmin, showAdmin, DEFAULT_TOOLS, pwHTML, wcHTML, pcHTML, wqHTML, ccHTML, acHTML, bmiHTML, dcHTML, ucHTML, tcHTML, recordUse, getStats:()=>statsCache};
+window.__SMTK = {importToolsFromText, toolsJSONString, getTools:()=>tools, render, renderAdmin, showAdmin, DEFAULT_TOOLS, pwHTML, wcHTML, pcHTML, wqHTML, ccHTML, acHTML, bmiHTML, dcHTML, ucHTML, tcHTML, swHTML, ntHTML, emiHTML, rgHTML, zkHTML, recordUse, getStats:()=>statsCache};
 </script>
 </body>
 </html>
