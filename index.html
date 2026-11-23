@@ -270,6 +270,11 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
         <option value="percentage-calc">Percentage Calculator</option>
         <option value="wifi-qr">WiFi QR Generator</option>
         <option value="color-converter">Color Converter</option>
+        <option value="age-calc">Age Calculator</option>
+        <option value="bmi-calc">BMI Calculator</option>
+        <option value="discount-calc">Discount Calculator</option>
+        <option value="unit-converter">Unit Converter</option>
+        <option value="case-converter">Text Case Converter</option>
         <option value="link">Custom Link (URL)</option>
       </select>
       <div id="linkField" style="display:none"><label>URL *</label><input id="fUrl" placeholder="https://..."></div>
@@ -443,6 +448,11 @@ function openTool(id){
   else if(t.type==='percentage-calc') b.innerHTML = pcHTML();
   else if(t.type==='wifi-qr') b.innerHTML = wqHTML();
   else if(t.type==='color-converter') b.innerHTML = ccHTML();
+  else if(t.type==='age-calc') b.innerHTML = acHTML();
+  else if(t.type==='bmi-calc') b.innerHTML = bmiHTML();
+  else if(t.type==='discount-calc') b.innerHTML = dcHTML();
+  else if(t.type==='unit-converter') b.innerHTML = ucHTML();
+  else if(t.type==='case-converter') b.innerHTML = tcHTML();
   else b.innerHTML = '<p style="color:var(--dim)">Is tool ki type pehchani nahi gayi.</p>';
   openModal('toolModal');
 }
@@ -693,6 +703,109 @@ function ccHTML(){
   +['ff3366','ffb347','ff6b3d','4ade80','38bdf8'].map(c=>'<button class="btn small ghost" style="background:#'+c+';color:#fff;border:none" onclick="document.getElementById(\'ccHex\').value=\''+c+'\';ccGen()">#'+c+'</button>').join('')+'</div>';
 }
 
+
+// ===== Built-in Tools (batch 2) =====
+function acCalc(){
+  const d = document.getElementById('acDate').value;
+  const out = document.getElementById('acOut');
+  if(!d){ out.className='out show'; out.textContent='❌ Date of birth select karo.'; return; }
+  const b = new Date(d + 'T00:00:00');
+  const now = new Date();
+  if(b > now){ out.className='out show'; out.textContent='❌ Future date nahi.'; return; }
+  let y = now.getFullYear() - b.getFullYear();
+  let m = now.getMonth() - b.getMonth();
+  let dd = now.getDate() - b.getDate();
+  if(dd < 0){ m--; const pm = new Date(now.getFullYear(), now.getMonth(), 0).getDate(); dd += pm; }
+  if(m < 0){ y--; m += 12; }
+  const days = Math.floor((now - b) / 86400000);
+  out.className='out show';
+  out.innerHTML = '<b style="font-size:18px">'+y+' years, '+m+' months, '+dd+' days</b><br><span style="color:var(--dim);font-size:13px">Total: '+days.toLocaleString('en-US')+' days</span>';
+}
+function acHTML(){
+  return '<label>Date of Birth</label><input id="acDate" type="date">'
+  +'<div class="row"><button class="btn" onclick="acCalc()"><i class="fa fa-birthday-cake"></i> Calculate Age</button></div><div class="out" id="acOut"></div>';
+}
+function bmiCalc(){
+  const w = parseFloat(document.getElementById('bmiW').value);
+  const h = parseFloat(document.getElementById('bmiH').value);
+  const out = document.getElementById('bmiOut');
+  if(isNaN(w) || isNaN(h) || w<=0 || h<=0){ out.className='out show'; out.textContent='❌ Weight aur height sahi likho.'; return; }
+  const hm = h/100;
+  const bmi = w/(hm*hm);
+  let cat = '', col = '';
+  if(bmi < 18.5){ cat = 'Underweight'; col = '#38bdf8'; }
+  else if(bmi < 25){ cat = 'Normal (Healthy)'; col = '#4ade80'; }
+  else if(bmi < 30){ cat = 'Overweight'; col = '#ffd27a'; }
+  else { cat = 'Obese'; col = '#ff6b6b'; }
+  out.className='out show';
+  out.innerHTML = '<b style="font-size:18px">BMI: '+bmi.toFixed(1)+'</b><br><span style="color:'+col+';font-weight:600">'+cat+'</span>';
+}
+function bmiHTML(){
+  return '<label>Weight (kg)</label><input id="bmiW" type="number" placeholder="e.g. 70">'
+  +'<label>Height (cm)</label><input id="bmiH" type="number" placeholder="e.g. 175">'
+  +'<div class="row"><button class="btn" onclick="bmiCalc()"><i class="fa fa-heartbeat"></i> Calculate BMI</button></div><div class="out" id="bmiOut"></div>';
+}
+function dcCalc(){
+  const p = parseFloat(document.getElementById('dcP').value);
+  const d = parseFloat(document.getElementById('dcD').value);
+  const out = document.getElementById('dcOut');
+  if(isNaN(p) || isNaN(d) || p<0 || d<0 || d>100){ out.className='out show'; out.textContent='❌ Price aur discount % sahi likho (0–100).'; return; }
+  const save = p*d/100;
+  const fin = p - save;
+  out.className='out show';
+  out.innerHTML = '<b style="font-size:18px">Final Price: Rs '+fin.toLocaleString('en-US')+'</b><br><span style="color:var(--dim);font-size:13px">You save: Rs '+save.toLocaleString('en-US')+' ('+d+'% off)</span>';
+}
+function dcHTML(){
+  return '<label>Original Price (Rs)</label><input id="dcP" type="number" placeholder="e.g. 2500">'
+  +'<label>Discount %</label><input id="dcD" type="number" placeholder="e.g. 20">'
+  +'<div class="row"><button class="btn" onclick="dcCalc()"><i class="fa fa-tag"></i> Calculate</button></div><div class="out" id="dcOut"></div>';
+}
+const UC_UNITS = {
+  length: {m:1, km:1000, cm:0.01, mm:0.001, mile:1609.34, ft:0.3048, inch:0.0254},
+  weight: {kg:1, g:0.001, lb:0.453592, oz:0.0283495}
+};
+function ucSwap(){
+  const cat = document.getElementById('ucCat').value;
+  const units = Object.keys(UC_UNITS[cat]);
+  const f = document.getElementById('ucFrom'), t = document.getElementById('ucTo');
+  f.innerHTML = units.map(u=>'<option value="'+u+'">'+u+'</option>').join('');
+  t.innerHTML = units.map(u=>'<option value="'+u+'">'+u+'</option>').join('');
+  t.selectedIndex = units.length > 1 ? 1 : 0;
+}
+function ucCalc(){
+  const v = parseFloat(document.getElementById('ucV').value);
+  const out = document.getElementById('ucOut');
+  if(isNaN(v)){ out.className='out show'; out.textContent='❌ Value likho.'; return; }
+  const cat = document.getElementById('ucCat').value;
+  const f = document.getElementById('ucFrom').value, t = document.getElementById('ucTo').value;
+  const base = v * UC_UNITS[cat][f];
+  const res = base / UC_UNITS[cat][t];
+  out.className='out show';
+  out.innerHTML = '<b style="font-size:18px">'+v+' '+f+' = '+res.toFixed(4).replace(/\.?0+$/,'')+' '+t+'</b>';
+}
+function ucHTML(){
+  return '<label>Category</label><select id="ucCat" onchange="ucSwap()"><option value="length">Length</option><option value="weight">Weight</option></select>'
+  +'<label>Value</label><input id="ucV" type="number" placeholder="e.g. 5">'
+  +'<div class="row"><select id="ucFrom" style="flex:1"><option value="km">km</option><option value="m">m</option><option value="cm">cm</option><option value="mm">mm</option><option value="mile">mile</option><option value="ft">ft</option><option value="inch">inch</option></select>'
+  +'<span style="align-self:center">→</span><select id="ucTo" style="flex:1"><option value="m">m</option><option value="km">km</option><option value="cm">cm</option><option value="mm">mm</option><option value="mile">mile</option><option value="ft">ft</option><option value="inch">inch</option></select></div>'
+  +'<div class="row"><button class="btn" onclick="ucCalc()"><i class="fa fa-exchange"></i> Convert</button></div><div class="out" id="ucOut"></div>';
+}
+function tcCase(kind){
+  const el = document.getElementById('tcIn');
+  let v = el.value || '';
+  if(kind==='upper') v = v.toUpperCase();
+  else if(kind==='lower') v = v.toLowerCase();
+  else if(kind==='title') v = v.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+  else if(kind==='sentence') v = v.toLowerCase().replace(/(^\s*[a-z]|[.!?]\s+[a-z])/g, m => m.toUpperCase());
+  el.value = v;
+}
+function tcHTML(){
+  return '<label>Your Text</label><textarea id="tcIn" placeholder="Type or paste text here..."></textarea>'
+  +'<div class="row"><button class="btn small" onclick="tcCase(\'upper\')">UPPERCASE</button><button class="btn small ghost" onclick="tcCase(\'lower\')">lowercase</button></div>'
+  +'<div class="row"><button class="btn small ghost" onclick="tcCase(\'title\')">Title Case</button><button class="btn small ghost" onclick="tcCase(\'sentence\')">Sentence case</button></div>'
+  +'<div class="row"><button class="btn ghost" onclick="copyText(document.getElementById(\'tcIn\').value,this)"><i class="fa fa-copy"></i> Copy Text</button></div>';
+}
+
 // ===== Usage Analytics =====
 function recordUse(id){
   try{
@@ -882,7 +995,7 @@ function importToolsFromText(txt){
   arr.forEach(item=>{
     if(!item || typeof item !== 'object'){ invalid++; return; }
     const name = String(item.name||'').trim();
-    const type = (item.type==='link' || ['whatsapp-link','thumbnail','qr','stylish-text','roman-urdu','password-generator','word-counter','percentage-calc','wifi-qr','color-converter'].indexOf(item.type) !== -1) ? item.type : 'link';
+    const type = (item.type==='link' || ['whatsapp-link','thumbnail','qr','stylish-text','roman-urdu','password-generator','word-counter','percentage-calc','wifi-qr','color-converter','age-calc','bmi-calc','discount-calc','unit-converter','case-converter'].indexOf(item.type) !== -1) ? item.type : 'link';
     const url = String(item.url||'').trim();
     if(!name){ invalid++; return; }
     if(type==='link' && !/^https?:\/\//.test(url)){ invalid++; return; }
@@ -1046,7 +1159,7 @@ if (FIREBASE_ON && fbAuth) {
   showMain();
   startFirebaseSync();
 }
-window.__SMTK = {importToolsFromText, toolsJSONString, getTools:()=>tools, render, renderAdmin, showAdmin, DEFAULT_TOOLS, pwHTML, wcHTML, pcHTML, wqHTML, ccHTML, recordUse, getStats:()=>statsCache};
+window.__SMTK = {importToolsFromText, toolsJSONString, getTools:()=>tools, render, renderAdmin, showAdmin, DEFAULT_TOOLS, pwHTML, wcHTML, pcHTML, wqHTML, ccHTML, acHTML, bmiHTML, dcHTML, ucHTML, tcHTML, recordUse, getStats:()=>statsCache};
 </script>
 </body>
 </html>
