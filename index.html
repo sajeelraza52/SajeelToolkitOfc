@@ -175,6 +175,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
     <button class="btn" onclick="doUserLogin()"><i class="fa fa-unlock-alt"></i> Login</button>
     <div class="out" id="loginErr"></div>
     <a class="btn ghost" style="display:block;margin-top:12px;text-align:center;text-decoration:none" href="https://wa.me/923061601587" target="_blank"><i class="fa-brands fa-whatsapp"></i> Admin se Login Lo</a>
+    <button class="btn" style="display:block;width:100%;margin-top:12px" onclick="showBuyModal()"><i class="fa fa-crown"></i> Buy Login — Rs 199 (Lifetime)</button>
   </div>
 </div>
 
@@ -230,6 +231,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
   <div class="tabs">
     <div class="tab active" id="tabTools" onclick="switchTab('tools')"><i class="fa fa-tools"></i> Tools</div>
     <div class="tab" id="tabUsers" onclick="switchTab('users')"><i class="fa fa-users"></i> Users</div>
+    <div class="tab" id="tabPayments" onclick="switchTab('payments')"><i class="fa fa-money-bill"></i> Payments <span id="payCount" class="pill" style="display:none">0</span></div>
   </div>
 
   <!-- Tools Tab -->
@@ -246,7 +248,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
     <div class="note" id="modeNote">Loading mode...</div>
     <div class="warn" id="firebaseRulesNote" style="display:none">
       <b>🔐 Firebase Rules:</b> Copy and paste these into your Firebase Console (Realtime Database > Rules) to secure your app.
-      <pre>{"rules":{"tools":{".read":"auth != null",".write":"auth != null && root.child('admins').child(auth.uid).exists()"},"stats":{".read":"auth != null && root.child('admins').child(auth.uid).exists()",".write":"auth != null"},"users":{".read":"auth != null && root.child('admins').child(auth.uid).exists()","$uid":{".read":"auth != null && auth.uid === $uid",".write":"auth != null && root.child('admins').child(auth.uid).exists()"}},"admins":{"$uid":{".read":"auth != null && auth.uid === $uid",".write":false}}}}</pre>
+      <pre>{"rules":{"tools":{".read":"auth != null",".write":"auth != null && root.child('admins').child(auth.uid).exists()"},"stats":{".read":"auth != null && root.child('admins').child(auth.uid).exists()",".write":"auth != null"},"users":{".read":"auth != null && root.child('admins').child(auth.uid).exists()","$uid":{".read":"auth != null && auth.uid === $uid",".write":"auth != null && root.child('admins').child(auth.uid).exists()"}},"admins":{"$uid":{".read":"auth != null && auth.uid === $uid",".write":false}},"paymentRequests":{".read":"auth != null && root.child('admins').child(auth.uid).exists()","$req":{".write":"(!data.exists() && newData.exists()) || (auth != null && root.child('admins').child(auth.uid).exists())"}}}}</pre>
     </div>
 
     <div id="addForm" style="display:none;background:var(--card);padding:20px;border-radius:16px;margin-bottom:20px;border:1px solid var(--glass-b)">
@@ -321,6 +323,12 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
 
     <table><thead><tr><th>User</th><th>Email</th><th>Status</th><th>Actions</th></tr></thead><tbody id="userList"></tbody></table>
   </div>
+
+  <!-- Payments Tab -->
+  <div id="adminPayments" style="display:none">
+    <div class="note">Payment requests — Rs 199 Lifetime (JazzCash 03291394723). Approve karne par login khud ban jayega. Phir user ko WhatsApp button se login bhej do.</div>
+    <table><thead><tr><th>Name</th><th>Phone</th><th>TID</th><th>Email</th><th>Status</th><th>Actions</th></tr></thead><tbody id="payList"></tbody></table>
+  </div>
 </div>
 
 <!-- Modals -->
@@ -331,6 +339,17 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
   <label>Password</label><input id="adminPass" type="password" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()">
   <div class="row"><button class="btn" onclick="doLogin()">Login</button></div>
   <div class="out" id="adminLoginErr" style="color:var(--danger)"></div>
+</div></div>
+
+<div class="modal-bg" id="buyModal"><div class="modal"><button class="close-x" onclick="closeModal()"><i class="fa fa-times"></i></button><h2>Buy Lifetime Login — Rs 199</h2><div class="md">Step 1: <b>Rs 199</b> JazzCash par bhejo — <b>03291394723</b> (Sajeel Raza)<br>Step 2: Neeche form bharo — Transaction ID zaroor likho.<br>Step 3: Approval ke baad login WhatsApp par milega.</div>
+  <label>Your Name *</label><input id="bName" placeholder="Ali Raza">
+  <label>JazzCash Number (jis se payment ki) *</label><input id="bPhone" placeholder="03XX-XXXXXXX" inputmode="tel">
+  <label>JazzCash Transaction ID (TID) *</label><input id="bTid" placeholder="e.g. 1234567890" inputmode="numeric">
+  <label>Login Email *</label><input id="bEmail" type="email" placeholder="user@email.com">
+  <label>Login Password *</label><input id="bPass" type="text" placeholder="Min 6 characters">
+  <div class="row"><button class="btn" onclick="submitPayment()">Submit Request</button></div>
+  <div class="out" id="buyErr"></div>
+  <div class="out" id="buyOk" style="color:#4ade80"></div>
 </div></div>
 
 <script>
@@ -1013,6 +1032,7 @@ function showAdmin(){
   document.getElementById('mainView').style.display='none';
   document.getElementById('adminView').style.display='block';
   if(FIREBASE_ON && fbDb && isAdmin) startUsersListener();
+  if(FIREBASE_ON && fbDb && isAdmin) startPaymentsListener();
   if(FIREBASE_ON && fbDb && isAdmin) startStatsListener();
 
   document.getElementById('modeNote').innerHTML = (FIREBASE_ON && fbDb)
@@ -1203,7 +1223,8 @@ function doUserLogin(){
 }
 function doLogout(){
   if(fbDb && usersBound){ fbDb.ref('users').off(); usersBound = false; }
-  stopFirebaseSync(); usersCache = [];
+  if(fbDb && paymentsBound){ fbDb.ref('paymentRequests').off(); paymentsBound = false; }
+  stopFirebaseSync(); usersCache = []; paymentsCache = [];
   if(fbAuth) fbAuth.signOut();
   currentUser = null; isAdmin = false;
   if(FIREBASE_ON && fbAuth) showLogin(); else showMain();
@@ -1235,9 +1256,12 @@ function showLoginErr(msg){
 function switchTab(name){
   document.getElementById('tabTools').classList.toggle('active', name==='tools');
   document.getElementById('tabUsers').classList.toggle('active', name==='users');
+  document.getElementById('tabPayments').classList.toggle('active', name==='payments');
   document.getElementById('adminTools').style.display = name==='tools' ? 'block' : 'none';
   document.getElementById('adminUsers').style.display = name==='users' ? 'block' : 'none';
+  document.getElementById('adminPayments').style.display = name==='payments' ? 'block' : 'none';
   if(name==='users') renderUsers();
+  if(name==='payments') renderPayments();
 }
 function showUserForm(){
   ['uName','uEmail','uPass'].forEach(id=>document.getElementById(id).value='');
@@ -1284,6 +1308,105 @@ function deleteUser(uid){
   fbDb.ref('users/' + uid).remove();
 }
 
+// ===== Payment Login System (Rs 199 Lifetime, JazzCash 03291394723 Sajeel Raza) =====
+const PAYMENT_PRICE = 199;
+const PAYMENT_METHOD = 'JazzCash';
+const PAYMENT_NUMBER = '03291394723';
+const PAYMENT_NAME = 'Sajeel Raza';
+let paymentsCache = [], paymentsBound = false;
+function normalizePKPhone(p){
+  const d = String(p||'').replace(/\D/g,'');
+  if(d.length===11 && d.startsWith('03')) return '92' + d.slice(1);
+  if(d.length===12 && d.startsWith('92')) return d;
+  return '';
+}
+function validatePaymentReq(r){
+  if(!r.name) return 'Enter your name.';
+  if(!normalizePKPhone(r.phone)) return 'Enter a valid Pakistani mobile number (03XX-XXXXXXX).';
+  if(!/^\d{6,}$/.test(r.tid||'')) return 'Enter your JazzCash Transaction ID (numbers only).';
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email||'')) return 'Enter a valid email.';
+  if(!r.pass || r.pass.length < 6) return 'Password must be at least 6 characters.';
+  return '';
+}
+function showBuyModal(){
+  ['bName','bPhone','bTid','bEmail','bPass'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  const e=document.getElementById('buyErr'), o=document.getElementById('buyOk');
+  if(e) e.classList.remove('show'); if(o) o.classList.remove('show');
+  openModal('buyModal');
+}
+async function submitPayment(){
+  const req = {
+    name: (document.getElementById('bName').value||'').trim(),
+    phone: (document.getElementById('bPhone').value||'').trim(),
+    tid: (document.getElementById('bTid').value||'').trim(),
+    email: (document.getElementById('bEmail').value||'').trim(),
+    pass: document.getElementById('bPass').value
+  };
+  const err = document.getElementById('buyErr'), ok = document.getElementById('buyOk');
+  err.classList.remove('show'); ok.classList.remove('show');
+  const v = validatePaymentReq(req);
+  if(v){ err.textContent = '❌ ' + v; err.classList.add('show'); return; }
+  if(!fbDb){ err.textContent = '❌ Firebase not connected. Try again later.'; err.classList.add('show'); return; }
+  try{
+    await fbDb.ref('paymentRequests').push({name:req.name, phone:normalizePKPhone(req.phone), tid:req.tid, email:req.email, pass:req.pass, amount:PAYMENT_PRICE, method:PAYMENT_METHOD, status:'pending', createdAt:Date.now()});
+    ['bName','bPhone','bTid','bEmail','bPass'].forEach(id=>{ document.getElementById(id).value=''; });
+    ok.textContent = '✅ Request sent! Approval ke baad login WhatsApp par milega. (Rs 199 — JazzCash 03291394723)';
+    ok.classList.add('show');
+  }catch(e){
+    err.textContent = '❌ ' + (e.message || 'Could not send request. Check your connection.');
+    err.classList.add('show');
+  }
+}
+function startPaymentsListener(){
+  if(!FIREBASE_ON || !fbDb || !isAdmin || paymentsBound) return;
+  paymentsBound = true;
+  fbDb.ref('paymentRequests').on('value', snap=>{
+    const v = snap.val() || {};
+    paymentsCache = Object.keys(v).map(k=>({id:k, ...v[k]}));
+    renderPayments();
+  });
+}
+function renderPayments(){
+  const tb = document.getElementById('payList');
+  if(!tb) return;
+  const pend = paymentsCache.filter(p=>p.status==='pending').length;
+  const pc = document.getElementById('payCount');
+  if(pc){ pc.style.display = pend ? 'inline-block' : 'none'; pc.textContent = pend; }
+  if(!paymentsCache.length){ tb.innerHTML = '<tr><td colspan="6" style="color:var(--dim)">No payment requests yet.</td></tr>'; return; }
+  const sorted = [...paymentsCache].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  tb.innerHTML = sorted.map(p=>{
+    const wa = 'https://wa.me/' + (p.phone||'') + '?text=' + encodeURIComponent('Assalam o Alaikum ' + (p.name||'') + '! Aap ka Sajeel Mods Toolkit login ready hai ✅\nEmail: ' + (p.email||'') + '\nPassword: ' + (p.pass||'') + '\nLogin: https://sajeel-toolkit-ofc.vercel.app/');
+    let acts = '';
+    if(p.status==='pending') acts = '<button class="btn small" onclick="approvePayment(\''+p.id+'\')">Approve</button> <button class="btn small danger" onclick="rejectPayment(\''+p.id+'\')">Reject</button>';
+    else if(p.status==='approved') acts = '<a class="btn small" style="text-decoration:none" href="'+wa+'" target="_blank"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>';
+    else acts = '<span style="color:var(--dim)">Rejected</span>';
+    acts += ' <button class="btn small ghost" onclick="deletePayment(\''+p.id+'\')"><i class="fa fa-trash"></i></button>';
+    return '<tr><td><b>'+esc(p.name||'—')+'</b></td><td>'+esc(p.phone||'')+'</td><td>'+esc(p.tid||'')+'</td><td>'+esc(p.email||'')+'</td><td><span class="pill '+(p.status==='approved'?'on':p.status==='rejected'?'off':'')+'">'+esc((p.status||'pending').toUpperCase())+'</span></td><td style="white-space:nowrap">'+acts+'</td></tr>';
+  }).join('');
+}
+async function approvePayment(id){
+  const r = paymentsCache.find(x=>x.id===id);
+  if(!r) return;
+  if(!secondaryApp){ alert('❌ Firebase not connected.'); return; }
+  try{
+    const cred = await secondaryApp.auth().createUserWithEmailAndPassword(r.email, r.pass);
+    await fbDb.ref('users/' + cred.user.uid).set({name:r.name, email:r.email, active:true, createdAt:Date.now(), paidVia:PAYMENT_METHOD, amount:PAYMENT_PRICE});
+    await secondaryApp.auth().signOut();
+    await fbDb.ref('paymentRequests/' + id).update({status:'approved', uid:cred.user.uid, decidedAt:Date.now()});
+    alert('✅ Login created!\n\nEmail: ' + r.email + '\nPassword: ' + r.pass + '\n\nAb WhatsApp button se user ko login bhej do.');
+  }catch(e){
+    alert('❌ ' + (e.code==='auth/email-already-in-use' ? 'Email already in use — user se naya email mango.' : e.message));
+  }
+}
+function rejectPayment(id){
+  if(!confirm('Reject this payment request?')) return;
+  fbDb.ref('paymentRequests/' + id).update({status:'rejected', decidedAt:Date.now()});
+}
+function deletePayment(id){
+  if(!confirm('Delete this payment request?')) return;
+  fbDb.ref('paymentRequests/' + id).remove();
+}
+
 // Init
 if (FIREBASE_ON && fbAuth) {
   fbAuth.onAuthStateChanged(u => {
@@ -1294,7 +1417,7 @@ if (FIREBASE_ON && fbAuth) {
   showMain();
   startFirebaseSync();
 }
-window.__SMTK = {importToolsFromText, toolsJSONString, getTools:()=>tools, render, renderAdmin, showAdmin, DEFAULT_TOOLS, pwHTML, wcHTML, pcHTML, wqHTML, ccHTML, acHTML, bmiHTML, dcHTML, ucHTML, tcHTML, swHTML, ntHTML, emiHTML, rgHTML, zkHTML, recordUse, getStats:()=>statsCache};
+window.__SMTK = {importToolsFromText, toolsJSONString, getTools:()=>tools, render, renderAdmin, showAdmin, DEFAULT_TOOLS, pwHTML, wcHTML, pcHTML, wqHTML, ccHTML, acHTML, bmiHTML, dcHTML, ucHTML, tcHTML, swHTML, ntHTML, emiHTML, rgHTML, zkHTML, recordUse, getStats:()=>statsCache, validatePaymentReq, normalizePKPhone, submitPayment, approvePayment, rejectPayment, renderPayments, showBuyModal, getPayments:()=>paymentsCache, PAYMENT_PRICE, PAYMENT_NUMBER};
 </script>
 </body>
 </html>
