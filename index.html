@@ -327,7 +327,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
   <!-- Payments Tab -->
   <div id="adminPayments" style="display:none">
     <div class="note">Payment requests — Rs 199 Lifetime (JazzCash 03291394723). Approve karne par login khud ban jayega. Phir user ko WhatsApp button se login bhej do.</div>
-    <table><thead><tr><th>Name</th><th>Phone</th><th>TID</th><th>Email</th><th>Status</th><th>Actions</th></tr></thead><tbody id="payList"></tbody></table>
+    <table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Status</th><th>Actions</th></tr></thead><tbody id="payList"></tbody></table>
   </div>
 </div>
 
@@ -341,15 +341,15 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
   <div class="out" id="adminLoginErr" style="color:var(--danger)"></div>
 </div></div>
 
-<div class="modal-bg" id="buyModal"><div class="modal"><button class="close-x" onclick="closeModal()"><i class="fa fa-times"></i></button><h2>Buy Lifetime Login — Rs 199</h2><div class="md">Step 1: <b>Rs 199</b> JazzCash par bhejo — <b>03291394723</b> (Sajeel Raza)<br>Step 2: Neeche form bharo — Transaction ID zaroor likho.<br>Step 3: Approval ke baad login WhatsApp par milega.</div>
+<div class="modal-bg" id="buyModal"><div class="modal"><button class="close-x" onclick="closeModal()"><i class="fa fa-times"></i></button><h2>Buy Lifetime Login — Rs 199</h2><div class="md">Step 1: <b>Rs 199</b> JazzCash par bhejo — <b>03291394723</b> (Sajeel Raza)<br>Step 2: Neeche form bharo aur Submit karo.<br>Step 3: Payment ka screenshot WhatsApp par bhej do — phir login milega.</div>
   <label>Your Name *</label><input id="bName" placeholder="Ali Raza">
   <label>JazzCash Number (jis se payment ki) *</label><input id="bPhone" placeholder="03XX-XXXXXXX" inputmode="tel">
-  <label>JazzCash Transaction ID (TID) *</label><input id="bTid" placeholder="e.g. 1234567890" inputmode="numeric">
   <label>Login Email *</label><input id="bEmail" type="email" placeholder="user@email.com">
   <label>Login Password *</label><input id="bPass" type="text" placeholder="Min 6 characters">
   <div class="row"><button class="btn" onclick="submitPayment()">Submit Request</button></div>
   <div class="out" id="buyErr"></div>
   <div class="out" id="buyOk" style="color:#4ade80"></div>
+  <a id="buyWaBtn" class="btn" style="display:none;margin-top:12px;text-align:center;text-decoration:none" href="https://wa.me/923061601587" target="_blank"><i class="fa-brands fa-whatsapp"></i> Payment Screenshot WhatsApp Karo</a>
 </div></div>
 
 <script>
@@ -1323,22 +1323,21 @@ function normalizePKPhone(p){
 function validatePaymentReq(r){
   if(!r.name) return 'Enter your name.';
   if(!normalizePKPhone(r.phone)) return 'Enter a valid Pakistani mobile number (03XX-XXXXXXX).';
-  if(!/^\d{6,}$/.test(r.tid||'')) return 'Enter your JazzCash Transaction ID (numbers only).';
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email||'')) return 'Enter a valid email.';
   if(!r.pass || r.pass.length < 6) return 'Password must be at least 6 characters.';
   return '';
 }
 function showBuyModal(){
-  ['bName','bPhone','bTid','bEmail','bPass'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  ['bName','bPhone','bEmail','bPass'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   const e=document.getElementById('buyErr'), o=document.getElementById('buyOk');
   if(e) e.classList.remove('show'); if(o) o.classList.remove('show');
+  const w=document.getElementById('buyWaBtn'); if(w) w.style.display='none';
   openModal('buyModal');
 }
 async function submitPayment(){
   const req = {
     name: (document.getElementById('bName').value||'').trim(),
     phone: (document.getElementById('bPhone').value||'').trim(),
-    tid: (document.getElementById('bTid').value||'').trim(),
     email: (document.getElementById('bEmail').value||'').trim(),
     pass: document.getElementById('bPass').value
   };
@@ -1348,10 +1347,12 @@ async function submitPayment(){
   if(v){ err.textContent = '❌ ' + v; err.classList.add('show'); return; }
   if(!fbDb){ err.textContent = '❌ Firebase not connected. Try again later.'; err.classList.add('show'); return; }
   try{
-    await fbDb.ref('paymentRequests').push({name:req.name, phone:normalizePKPhone(req.phone), tid:req.tid, email:req.email, pass:req.pass, amount:PAYMENT_PRICE, method:PAYMENT_METHOD, status:'pending', createdAt:Date.now()});
-    ['bName','bPhone','bTid','bEmail','bPass'].forEach(id=>{ document.getElementById(id).value=''; });
-    ok.textContent = '✅ Request sent! Approval ke baad login WhatsApp par milega. (Rs 199 — JazzCash 03291394723)';
+    await fbDb.ref('paymentRequests').push({name:req.name, phone:normalizePKPhone(req.phone), email:req.email, pass:req.pass, amount:PAYMENT_PRICE, method:PAYMENT_METHOD, status:'pending', createdAt:Date.now()});
+    ['bName','bPhone','bEmail','bPass'].forEach(id=>{ document.getElementById(id).value=''; });
+    ok.textContent = '✅ Request sent! Ab payment ka screenshot WhatsApp par bhej do — approval ke baad login milega.';
     ok.classList.add('show');
+    const waBtn = document.getElementById('buyWaBtn');
+    if(waBtn){ waBtn.href = 'https://wa.me/923061601587?text=' + encodeURIComponent('Assalam o Alaikum! Maine Sajeel Mods Toolkit ka login khareeda hai (Rs 199 JazzCash). Naam: ' + req.name + ', Email: ' + req.email + '. Payment ka screenshot attach kar raha hun.'); waBtn.style.display='block'; }
   }catch(e){
     err.textContent = '❌ ' + (e.message || 'Could not send request. Check your connection.');
     err.classList.add('show');
@@ -1372,7 +1373,7 @@ function renderPayments(){
   const pend = paymentsCache.filter(p=>p.status==='pending').length;
   const pc = document.getElementById('payCount');
   if(pc){ pc.style.display = pend ? 'inline-block' : 'none'; pc.textContent = pend; }
-  if(!paymentsCache.length){ tb.innerHTML = '<tr><td colspan="6" style="color:var(--dim)">No payment requests yet.</td></tr>'; return; }
+  if(!paymentsCache.length){ tb.innerHTML = '<tr><td colspan="5" style="color:var(--dim)">No payment requests yet.</td></tr>'; return; }
   const sorted = [...paymentsCache].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   tb.innerHTML = sorted.map(p=>{
     const wa = 'https://wa.me/' + (p.phone||'') + '?text=' + encodeURIComponent('Assalam o Alaikum ' + (p.name||'') + '! Aap ka Sajeel Mods Toolkit login ready hai ✅\nEmail: ' + (p.email||'') + '\nPassword: ' + (p.pass||'') + '\nLogin: https://sajeel-toolkit-ofc.vercel.app/');
@@ -1381,7 +1382,7 @@ function renderPayments(){
     else if(p.status==='approved') acts = '<a class="btn small" style="text-decoration:none" href="'+wa+'" target="_blank"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>';
     else acts = '<span style="color:var(--dim)">Rejected</span>';
     acts += ' <button class="btn small ghost" onclick="deletePayment(\''+p.id+'\')"><i class="fa fa-trash"></i></button>';
-    return '<tr><td><b>'+esc(p.name||'—')+'</b></td><td>'+esc(p.phone||'')+'</td><td>'+esc(p.tid||'')+'</td><td>'+esc(p.email||'')+'</td><td><span class="pill '+(p.status==='approved'?'on':p.status==='rejected'?'off':'')+'">'+esc((p.status||'pending').toUpperCase())+'</span></td><td style="white-space:nowrap">'+acts+'</td></tr>';
+    return '<tr><td><b>'+esc(p.name||'—')+'</b></td><td>'+esc(p.phone||'')+'</td><td>'+esc(p.email||'')+'</td><td><span class="pill '+(p.status==='approved'?'on':p.status==='rejected'?'off':'')+'">'+esc((p.status||'pending').toUpperCase())+'</span></td><td style="white-space:nowrap">'+acts+'</td></tr>';
   }).join('');
 }
 async function approvePayment(id){
