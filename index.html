@@ -364,7 +364,7 @@ const FIREBASE_CONFIG = {
   appId: "1:303975102641:web:5848ee69374094ee560a90"
 };
 const FIREBASE_ON = !!(FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== "PASTE_YOUR_API_KEY_HERE");
-let fbDb = null, fbAuth = null, secondaryApp = null, currentUser = null, isAdmin = false, sessionBound = false, sessionRef = null;
+let fbDb = null, fbAuth = null, secondaryApp = null, currentUser = null, isAdmin = false, sessionBound = false, sessionRef = null, pendingFreshLogin = false;
 let usersCache = [], usersBound = false, toolsBound = false;
 let statsCache = {}, statsBound = false;
 
@@ -1216,7 +1216,9 @@ function doUserLogin(){
   err.classList.remove('show');
   if(!email || !pass){ err.textContent='❌ Enter email and password!'; err.classList.add('show'); return; }
   if(!fbAuth){ err.textContent='❌ Firebase not connected.'; err.classList.add('show'); return; }
+  pendingFreshLogin = true;
   fbAuth.signInWithEmailAndPassword(email, pass).catch(e=>{
+    pendingFreshLogin = false;
     err.textContent = '❌ Login failed: ' + (e.code==='auth/user-not-found' ? 'User not found.' : e.code==='auth/wrong-password' ? 'Wrong password.' : e.message);
     err.classList.add('show');
   });
@@ -1241,7 +1243,8 @@ function routeUser(user){
     if(u && u.active === false){ fbAuth.signOut(); showLoginErr('Account suspended. Contact admin.'); return; }
     showMain();
     startFirebaseSync();
-    claimSession().then(()=>startSessionListener());
+    if(pendingFreshLogin){ pendingFreshLogin = false; claimSession().then(()=>startSessionListener()); }
+    else { startSessionListener(); }
   }).catch(e=>{
     try { fbAuth.signOut(); } catch(x){}
     currentUser = null; isAdmin = false;
@@ -1473,7 +1476,7 @@ if (FIREBASE_ON && fbAuth) {
   showMain();
   startFirebaseSync();
 }
-window.__SMTK = {importToolsFromText, toolsJSONString, getTools:()=>tools, render, renderAdmin, showAdmin, DEFAULT_TOOLS, pwHTML, wcHTML, pcHTML, wqHTML, ccHTML, acHTML, bmiHTML, dcHTML, ucHTML, tcHTML, swHTML, ntHTML, emiHTML, rgHTML, zkHTML, recordUse, getStats:()=>statsCache, validatePaymentReq, normalizePKPhone, submitPayment, approvePayment, rejectPayment, renderPayments, showBuyModal, getPayments:()=>paymentsCache, PAYMENT_PRICE, PAYMENT_NUMBER, getDeviceId, newSessionToken, claimSession, startSessionListener, stopSessionListener, getSessionBound:()=>sessionBound};
+window.__SMTK = {importToolsFromText, toolsJSONString, getTools:()=>tools, render, renderAdmin, showAdmin, DEFAULT_TOOLS, pwHTML, wcHTML, pcHTML, wqHTML, ccHTML, acHTML, bmiHTML, dcHTML, ucHTML, tcHTML, swHTML, ntHTML, emiHTML, rgHTML, zkHTML, recordUse, getStats:()=>statsCache, validatePaymentReq, normalizePKPhone, submitPayment, approvePayment, rejectPayment, renderPayments, showBuyModal, getPayments:()=>paymentsCache, PAYMENT_PRICE, PAYMENT_NUMBER, getDeviceId, newSessionToken, claimSession, startSessionListener, stopSessionListener, getSessionBound:()=>sessionBound, setPendingFreshLogin:v=>{pendingFreshLogin=!!v;}, getPendingFreshLogin:()=>pendingFreshLogin};
 </script>
 </body>
 </html>
