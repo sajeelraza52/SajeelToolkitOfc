@@ -219,7 +219,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
 
   <div class="ref-box" id="refBox" style="display:none">
     <b>👥 Doston ko Invite Karo</b>
-    Apna link share karo — har dost jo is link se login khareede, tumhara referral count +1 hoga.
+    Apna link share karo — har dost jo is link se login khareede, tumhe Rs 50 cashback milega (JazzCash).
     <div class="ref-row"><input id="refLink" readonly><button class="btn small" onclick="copyRefLink(this)">Copy</button></div>
     <span class="ref-count" id="refCount"></span>
   </div>
@@ -381,7 +381,8 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
 <b>3. Ek device ka kya matlab hai?</b><br>Ek login sirf ek device par chalega. Doosre device par login karoge to pehla device logout ho jayega.<br><br>
 <b>4. Password bhool gaya to?</b><br>Admin ko WhatsApp karo (0306 1601587) — wo tumhara password reset kar dega.<br><br>
 <b>5. Koi tool ka link kaam nahi kar raha?</b><br>Admin ko WhatsApp par tool ka naam bhej do, theek kar diya jayega.<br><br>
-<b>6. Naya tool chahiye?</b><br>WhatsApp par suggest karo — achha tool hua to add kar diya jayega.
+<b>6. Naya tool chahiye?</b><br>WhatsApp par suggest karo — achha tool hua to add kar diya jayega.<br><br>
+<b>7. Referral par kya milega?</b><br>Apna referral link share karo — har dost jo us link se login khareede, tumhe Rs 50 JazzCash cashback milega. Cashback admin approve karne ke baad bhejega.
 </div></div></div>
 
 <div class="modal-bg" id="buyModal"><div class="modal"><button class="close-x" onclick="closeModal()"><i class="fa fa-times"></i></button><h2>Buy Lifetime Login — Rs 199</h2><div class="md">Step 1: <b>Rs 199</b> JazzCash par bhejo — <b>03291394723</b> (Sajeel Raza)<br>Step 2: Neeche form bharo aur Submit karo.<br>Step 3: Payment ka screenshot WhatsApp par bhej do — phir login milega.</div>
@@ -1578,6 +1579,18 @@ function startPaymentsListener(){
     renderPayments();
   });
 }
+function refPhoneFor(p){
+  if(!p.ref) return '';
+  const u = usersCache.find(x=>x.uid===p.ref);
+  if(!u || !u.email) return '';
+  const r = paymentsCache.find(x=>x.email===u.email && x.phone);
+  return r ? (r.phone||'') : '';
+}
+function markCashbackSent(id){
+  if(!confirm('Cashback bhej diya? (Rs 50 referrer ko JazzCash par)')) return;
+  if(!fbDb) return;
+  fbDb.ref('paymentRequests/' + id).update({cashbackSent:true, cashbackAt:Date.now()});
+}
 function renderPayments(){
   const tb = document.getElementById('payList');
   if(!tb) return;
@@ -1592,6 +1605,14 @@ function renderPayments(){
     if(p.status==='pending') acts = '<button class="btn small" onclick="approvePayment(\''+p.id+'\')">Approve</button> <button class="btn small danger" onclick="rejectPayment(\''+p.id+'\')">Reject</button>';
     else if(p.status==='approved') acts = '<a class="btn small" style="text-decoration:none" href="'+wa+'" target="_blank"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>';
     else acts = '<span style="color:var(--dim)">Rejected</span>';
+    if(p.status==='approved' && p.ref){
+      if(p.cashbackSent) acts += ' <span class="pill on">✅ Cashback sent</span>';
+      else {
+        const rp = refPhoneFor(p);
+        if(rp) acts += ' <a class="btn small" style="text-decoration:none" href="https://wa.me/' + rp + '?text=' + encodeURIComponent('Assalam o Alaikum! Aap ke referral par Sajeel Mods Toolkit ka login khareeda gaya ✅ Aap ka Rs 50 cashback JazzCash par bheja ja raha hai. Shukriya!') + '" target="_blank">Rs 50 Cashback</a>';
+        acts += ' <button class="btn small ghost" onclick="markCashbackSent(\''+p.id+'\')">✓ Sent</button>';
+      }
+    }
     acts += ' <button class="btn small ghost" onclick="deletePayment(\''+p.id+'\')"><i class="fa fa-trash"></i></button>';
     return '<tr><td><b>'+esc(p.name||'—')+'</b>' + (p.ref ? '<br><span style="color:var(--dim);font-size:11px">Ref: '+esc(String(p.ref).slice(0,8))+'</span>' : '') + '</td><td>'+esc(p.phone||'')+'</td><td>'+esc(p.email||'')+'</td><td><span class="pill '+(p.status==='approved'?'on':p.status==='rejected'?'off':'')+'">'+esc((p.status||'pending').toUpperCase())+'</span></td><td style="white-space:nowrap">'+acts+'</td></tr>';
   }).join('');
@@ -1635,7 +1656,7 @@ if (FIREBASE_ON && fbAuth) {
   showMain();
   startFirebaseSync();
 }
-window.__SMTK = {importToolsFromText, toolsJSONString, getTools:()=>tools, render, renderAdmin, showAdmin, DEFAULT_TOOLS, pwHTML, wcHTML, pcHTML, wqHTML, ccHTML, acHTML, bmiHTML, dcHTML, ucHTML, tcHTML, swHTML, ntHTML, emiHTML, rgHTML, zkHTML, recordUse, getStats:()=>statsCache, validatePaymentReq, normalizePKPhone, submitPayment, approvePayment, rejectPayment, renderPayments, showBuyModal, getPayments:()=>paymentsCache, PAYMENT_PRICE, PAYMENT_NUMBER, getDeviceId, newSessionToken, claimSession, startSessionListener, stopSessionListener, getSessionBound:()=>sessionBound, setPendingFreshLogin:v=>{pendingFreshLogin=!!v;}, getPendingFreshLogin:()=>pendingFreshLogin, toggleFav, getFavs, getRecents, shareTool, showPendingStatus, clearPendingReq, saveAnnouncement, clearAnnouncement, checkLinks, renderReferral, copyRefLink, dismissAnn, isNewTool, getMyReferrals:()=>myReferrals};
+window.__SMTK = {importToolsFromText, toolsJSONString, getTools:()=>tools, render, renderAdmin, showAdmin, DEFAULT_TOOLS, pwHTML, wcHTML, pcHTML, wqHTML, ccHTML, acHTML, bmiHTML, dcHTML, ucHTML, tcHTML, swHTML, ntHTML, emiHTML, rgHTML, zkHTML, recordUse, getStats:()=>statsCache, validatePaymentReq, normalizePKPhone, submitPayment, approvePayment, rejectPayment, renderPayments, showBuyModal, getPayments:()=>paymentsCache, PAYMENT_PRICE, PAYMENT_NUMBER, getDeviceId, newSessionToken, claimSession, startSessionListener, stopSessionListener, getSessionBound:()=>sessionBound, setPendingFreshLogin:v=>{pendingFreshLogin=!!v;}, getPendingFreshLogin:()=>pendingFreshLogin, toggleFav, getFavs, getRecents, shareTool, showPendingStatus, clearPendingReq, saveAnnouncement, clearAnnouncement, checkLinks, renderReferral, copyRefLink, dismissAnn, isNewTool, getMyReferrals:()=>myReferrals, markCashbackSent, refPhoneFor};
 </script>
 </body>
 </html>
