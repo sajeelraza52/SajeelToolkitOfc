@@ -316,6 +316,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
         <option value="emi-calc">EMI Calculator</option>
         <option value="random-gen">Random Generator</option>
         <option value="zakat-calc">Zakat Calculator</option>
+        <option value="ai-photo">AI Photo Generator</option>
         <option value="link">Custom Link (URL)</option>
       </select>
       <div id="linkField" style="display:none"><label>URL *</label><input id="fUrl" placeholder="https://..."></div>
@@ -430,7 +431,8 @@ const DEFAULT_TOOLS = [
   {"id":"t3","name":"QR Code Generator","desc":"Apna number, link ya text ka QR code banao aur download karo — shop, menu ya payments ke liye.","category":"Utility","icon":"🔳","type":"qr","url":""},
   {"id":"t4","name":"Stylish Text Generator","desc":"Apna naam fancy fonts me badlo — Instagram bio aur TikTok ke liye. Copy kar ke paste karo.","category":"Text","icon":"✨","type":"stylish-text","url":""},
   {"id":"t5","name":"Roman Urdu → Urdu Converter","desc":"Roman Urdu likho (jaise: salam) aur Urdu script me badlo — سلام","category":"Text","icon":"🇵🇰","type":"roman-urdu","url":""},
-  {"id":"t6","name":"WhatsApp Unban Appeal","desc":"WhatsApp number ban ho gaya? Sahi tareeqe se unban appeal bhejne ke tips aur format.","category":"WhatsApp","icon":"🔓","type":"link","url":"https://sajeel-unban-tool.vercel.app"}
+  {"id":"t6","name":"WhatsApp Unban Appeal","desc":"WhatsApp number ban ho gaya? Sahi tareeqe se unban appeal bhejne ke tips aur format.","category":"WhatsApp","icon":"🔓","type":"link","url":"https://sajeel-unban-tool.vercel.app"},
+  {"id":"t7","name":"AI Photo Generator","desc":"Text likho, AI photo bana de — bilkul free, no signup. TikTok, YouTube aur Instagram ke liye.","category":"AI Tools","icon":"🎨","type":"ai-photo","url":""}
 ];
 // __TOOLS_END__
 
@@ -586,6 +588,7 @@ function openTool(id){
   else if(t.type==='emi-calc') b.innerHTML = emiHTML();
   else if(t.type==='random-gen') b.innerHTML = rgHTML();
   else if(t.type==='zakat-calc') b.innerHTML = zkHTML();
+  else if(t.type==='ai-photo'){ b.innerHTML = aiPhotoHTML(); aiPhotoRenderHist(); }
   else b.innerHTML = '<p style="color:var(--dim)">Is tool ki type pehchani nahi gayi.</p>';
   openModal('toolModal');
 }
@@ -1064,6 +1067,83 @@ function zkHTML(){
   +'<p style="color:var(--dim);font-size:12px;margin-top:12px">Zakat 2.5% hoti hai — sirf us maal par jo nisab se zyada ho aur 1 saal guzar gaya ho. Confirm ke liye apne mufti se pooch lena.</p>';
 }
 
+// ===== AI Photo Generator (v8) — Pollinations free API, no key =====
+const AI_PHOTO_SAMPLES = ['Cute baby lion wearing a red scarf', 'Red sports car on a highway at sunset', 'Beautiful mountain lake in Pakistan', 'Futuristic city at night with neon lights'];
+const AI_PHOTO_STYLES = {auto:'', realistic:', realistic photo, highly detailed', cartoon:', cartoon style, colorful', anime:', anime style', '3d':', 3D render, Pixar style', painting:', oil painting'};
+let currentAiPhotoUrl = null;
+function aiPhotoHTML(){
+  return '<label>Photo kaisi chahiye? (English mein likho — behtar banti hai)</label><input id="aiPrompt" placeholder="e.g. Cute baby lion wearing a red scarf">'
+  +'<label>Style</label><select id="aiStyle"><option value="auto">Auto</option><option value="realistic">Realistic Photo</option><option value="cartoon">Cartoon</option><option value="anime">Anime</option><option value="3d">3D Render</option><option value="painting">Painting</option></select>'
+  +'<label>Size</label><select id="aiSize"><option value="512x512">Square (512x512)</option><option value="512x768">Portrait (512x768)</option><option value="768x512">Landscape (768x512)</option></select>'
+  +'<div class="row"><button class="btn" onclick="aiPhotoGen()"><i class="fa fa-magic"></i> Photo Banao</button></div>'
+  +'<div style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0">' + AI_PHOTO_SAMPLES.map(s=>'<span class="chip" onclick="aiPhotoSample(\''+s+'\')">'+esc(s)+'</span>').join('') + '</div>'
+  +'<div class="out" id="aiOut"></div><div id="aiImgWrap" style="text-align:center"></div><div id="aiHist"></div>';
+}
+function aiPhotoSample(s){ const el = document.getElementById('aiPrompt'); if(el) el.value = s; aiPhotoGen(); }
+function aiPhotoUrl(prompt, seed){
+  const st = document.getElementById('aiStyle');
+  const sz = document.getElementById('aiSize');
+  const style = AI_PHOTO_STYLES[(st ? st.value : 'auto')] || '';
+  const wh = (sz ? sz.value : '512x512').split('x');
+  return 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt + style) + '?width=' + wh[0] + '&height=' + wh[1] + '&nologo=true&seed=' + seed;
+}
+function aiPhotoGen(){
+  const p = (document.getElementById('aiPrompt').value||'').trim();
+  const out = document.getElementById('aiOut'), wrap = document.getElementById('aiImgWrap');
+  if(!p){ out.className='out show'; out.textContent='❌ Pehle likho — kaisi photo chahiye?'; return; }
+  const seed = Math.floor(Math.random()*1000000);
+  const url = aiPhotoUrl(p, seed);
+  currentAiPhotoUrl = url;
+  out.className='out show'; out.textContent='⏳ Photo ban rahi hai... (pehli baar 10-20 second lag sakte hain)';
+  wrap.innerHTML = '';
+  const img = new Image();
+  img.onload = ()=>{
+    out.className='out'; out.textContent='';
+    wrap.innerHTML = '<img src="'+url+'" style="max-width:100%;border-radius:16px;margin-top:12px" alt="AI photo">'
+      +'<div class="row" style="margin-top:12px"><button class="btn" onclick="aiPhotoDownload()"><i class="fa fa-download"></i> Download</button><button class="btn ghost" onclick="aiPhotoGen()">🔄 Dobara Banao</button></div>';
+    aiPhotoSaveHist(p, url);
+  };
+  img.onerror = ()=>{ out.className='out show'; out.textContent='❌ Photo nahi bani — dobara try karo ya prompt badlo.'; };
+  img.src = url;
+}
+async function aiPhotoDownload(){
+  if(!currentAiPhotoUrl) return;
+  try {
+    const r = await fetch(currentAiPhotoUrl);
+    if(!r.ok) throw new Error('fetch failed');
+    const b = await r.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(b);
+    a.download = 'sajeel-mods-ai-photo.jpg';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+  } catch(e){ window.open(currentAiPhotoUrl, '_blank'); }
+}
+function aiPhotoSaveHist(prompt, url){
+  try {
+    let h = JSON.parse(localStorage.getItem('smtk_ai_photos') || '[]');
+    h = h.filter(x=>x.url!==url);
+    h.unshift({prompt:prompt, url:url});
+    h = h.slice(0,6);
+    localStorage.setItem('smtk_ai_photos', JSON.stringify(h));
+    aiPhotoRenderHist();
+  } catch(e){}
+}
+function aiPhotoRenderHist(){
+  const el = document.getElementById('aiHist'); if(!el) return;
+  let h = [];
+  try { h = JSON.parse(localStorage.getItem('smtk_ai_photos') || '[]'); } catch(e){}
+  if(!h.length){ el.innerHTML=''; return; }
+  el.innerHTML = '<p style="color:var(--dim);font-size:12px;margin-top:16px">🕐 Recent photos (tap karo dobara dekhne ke liye):</p><div style="display:flex;gap:8px;flex-wrap:wrap">'
+    + h.map(x=>'<img src="'+esc(x.url)+'" style="width:64px;height:64px;object-fit:cover;border-radius:10px;cursor:pointer" onclick="aiPhotoShowHist(\''+esc(x.url)+'\')">').join('') + '</div>';
+}
+function aiPhotoShowHist(url){
+  currentAiPhotoUrl = url;
+  const wrap = document.getElementById('aiImgWrap');
+  if(wrap) wrap.innerHTML = '<img src="'+esc(url)+'" style="max-width:100%;border-radius:16px;margin-top:12px" alt="AI photo">'
+    +'<div class="row" style="margin-top:12px"><button class="btn" onclick="aiPhotoDownload()"><i class="fa fa-download"></i> Download</button><button class="btn ghost" onclick="aiPhotoGen()">🔄 Dobara Banao</button></div>';
+}
+
 // ===== Usage Analytics =====
 function recordUse(id){
   try{
@@ -1254,7 +1334,7 @@ function importToolsFromText(txt){
   arr.forEach(item=>{
     if(!item || typeof item !== 'object'){ invalid++; return; }
     const name = String(item.name||'').trim();
-    const type = (item.type==='link' || ['whatsapp-link','thumbnail','qr','stylish-text','roman-urdu','password-generator','word-counter','percentage-calc','wifi-qr','color-converter','age-calc','bmi-calc','discount-calc','unit-converter','case-converter','stopwatch','notes','emi-calc','random-gen','zakat-calc'].indexOf(item.type) !== -1) ? item.type : 'link';
+    const type = (item.type==='link' || ['whatsapp-link','thumbnail','qr','stylish-text','roman-urdu','password-generator','word-counter','percentage-calc','wifi-qr','color-converter','age-calc','bmi-calc','discount-calc','unit-converter','case-converter','stopwatch','notes','emi-calc','random-gen','zakat-calc','ai-photo'].indexOf(item.type) !== -1) ? item.type : 'link';
     const url = String(item.url||'').trim();
     if(!name){ invalid++; return; }
     if(type==='link' && !/^https?:\/\//.test(url)){ invalid++; return; }
@@ -1656,7 +1736,7 @@ if (FIREBASE_ON && fbAuth) {
   showMain();
   startFirebaseSync();
 }
-window.__SMTK = {importToolsFromText, toolsJSONString, getTools:()=>tools, render, renderAdmin, showAdmin, DEFAULT_TOOLS, pwHTML, wcHTML, pcHTML, wqHTML, ccHTML, acHTML, bmiHTML, dcHTML, ucHTML, tcHTML, swHTML, ntHTML, emiHTML, rgHTML, zkHTML, recordUse, getStats:()=>statsCache, validatePaymentReq, normalizePKPhone, submitPayment, approvePayment, rejectPayment, renderPayments, showBuyModal, getPayments:()=>paymentsCache, PAYMENT_PRICE, PAYMENT_NUMBER, getDeviceId, newSessionToken, claimSession, startSessionListener, stopSessionListener, getSessionBound:()=>sessionBound, setPendingFreshLogin:v=>{pendingFreshLogin=!!v;}, getPendingFreshLogin:()=>pendingFreshLogin, toggleFav, getFavs, getRecents, shareTool, showPendingStatus, clearPendingReq, saveAnnouncement, clearAnnouncement, checkLinks, renderReferral, copyRefLink, dismissAnn, isNewTool, getMyReferrals:()=>myReferrals, markCashbackSent, refPhoneFor};
+window.__SMTK = {importToolsFromText, toolsJSONString, getTools:()=>tools, render, renderAdmin, showAdmin, DEFAULT_TOOLS, pwHTML, wcHTML, pcHTML, wqHTML, ccHTML, acHTML, bmiHTML, dcHTML, ucHTML, tcHTML, swHTML, ntHTML, emiHTML, rgHTML, zkHTML, recordUse, getStats:()=>statsCache, validatePaymentReq, normalizePKPhone, submitPayment, approvePayment, rejectPayment, renderPayments, showBuyModal, getPayments:()=>paymentsCache, PAYMENT_PRICE, PAYMENT_NUMBER, getDeviceId, newSessionToken, claimSession, startSessionListener, stopSessionListener, getSessionBound:()=>sessionBound, setPendingFreshLogin:v=>{pendingFreshLogin=!!v;}, getPendingFreshLogin:()=>pendingFreshLogin, toggleFav, getFavs, getRecents, shareTool, showPendingStatus, clearPendingReq, saveAnnouncement, clearAnnouncement, checkLinks, renderReferral, copyRefLink, dismissAnn, isNewTool, getMyReferrals:()=>myReferrals, markCashbackSent, refPhoneFor, aiPhotoHTML, aiPhotoGen, aiPhotoDownload, aiPhotoSample, aiPhotoUrl, aiPhotoRenderHist, getCurrentAiPhotoUrl:()=>currentAiPhotoUrl};
 </script>
 </body>
 </html>
