@@ -162,6 +162,10 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
 .card-actions .btn{flex:1}
 .card .icon-btn{flex:0 0 44px;padding:12px 0}
 .card .icon-btn.fav-on{color:#ffd27a;border-color:rgba(255,210,122,0.5)}
+.card.newest{border-color:rgba(255,179,71,0.7);box-shadow:0 0 0 1px rgba(255,179,71,0.5),0 0 28px rgba(255,179,71,0.25)}
+.ai-msg{max-width:88%;padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.ai-msg.user{align-self:flex-end;background:linear-gradient(135deg,#ff2d78,#ff7a18);color:#fff}
+.ai-msg.ai{align-self:flex-start;background:var(--glass);color:var(--text);border:1px solid var(--glass-b)}
 .new-pill{font-size:10px;padding:3px 8px;vertical-align:middle}
 .ann-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(135deg,rgba(255,51,102,0.18),rgba(255,179,71,0.15));border:1px solid rgba(255,179,71,0.4);border-radius:14px;padding:12px 16px;margin-bottom:16px;font-size:14px}
 .ann-bar button{background:none;border:none;color:var(--dim);cursor:pointer;font-size:16px}
@@ -317,6 +321,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
         <option value="random-gen">Random Generator</option>
         <option value="zakat-calc">Zakat Calculator</option>
         <option value="ai-photo">AI Photo Generator</option>
+        <option value="ai-chat">Free AI Chat</option>
         <option value="link">Custom Link (URL)</option>
       </select>
       <div id="linkField" style="display:none"><label>URL *</label><input id="fUrl" placeholder="https://..."></div>
@@ -426,6 +431,7 @@ const ADMIN_PASSWORD_DEFAULT = 'sajeel123';
 
 // ===== TOOLS DATA =====
 const DEFAULT_TOOLS = [
+  {"id":"t0","name":"Free AI Chat","desc":"ChatGPT jaisa free AI — sawal poocho, jawab lo. Homework, shayari, captions, sab kuch.","category":"AI Tools","icon":"🤖","type":"ai-chat","url":""},
   {"id":"t1","name":"WhatsApp Link Generator","desc":"Number + message likho, wa.me link ban jaye — number save kiye baghair WhatsApp chat kholo.","category":"WhatsApp","icon":"💬","type":"whatsapp-link","url":""},
   {"id":"t2","name":"YouTube Thumbnail Downloader","desc":"Kisi bhi YouTube video ka link dalo aur HD thumbnail download karo — bilkul free.","category":"YouTube","icon":"🖼️","type":"thumbnail","url":""},
   {"id":"t3","name":"QR Code Generator","desc":"Apna number, link ya text ka QR code banao aur download karo — shop, menu ya payments ke liye.","category":"Utility","icon":"🔳","type":"qr","url":""},
@@ -442,6 +448,7 @@ let activeCat = 'All', editingId = null;
 let myReferrals = 0, annBound = false, currentToolId = null, currentAnnAt = null;
 const LS_FAV = 'smtk_fav_', LS_RECENT = 'smtk_recent_', LS_PENDING = 'smtk_pending_req', LS_REF = 'smtk_ref';
 const NEW_BADGE_MS = 14 * 24 * 3600 * 1000;
+const NEWEST_HIGHLIGHT_MS = 24 * 3600 * 1000; // 1 day — newest tool keeps its gold theme
 try { const rp = new URLSearchParams(location.search).get('ref'); if(rp) localStorage.setItem(LS_REF, rp); } catch(e){}
 
 function getPass(){ return localStorage.getItem(LS_PASS) || ADMIN_PASSWORD_DEFAULT; }
@@ -517,6 +524,8 @@ function toggleFav(id, ev){ if(ev) ev.stopPropagation(); let f = getFavs(); cons
 function getRecents(){ try { return JSON.parse(localStorage.getItem(recentKey()) || '[]'); } catch(e){ return []; } }
 function pushRecent(id){ try { let r = getRecents().filter(x=>x!==id); r.unshift(id); r = r.slice(0,8); localStorage.setItem(recentKey(), JSON.stringify(r)); } catch(e){} }
 function isNewTool(t){ return !!(t.createdAt && (Date.now() - t.createdAt) < NEW_BADGE_MS); }
+function newestTool(){ let best=null; tools.forEach(t=>{ if(t.createdAt && (!best || t.createdAt>best.createdAt)) best=t; }); return best; }
+function isNewestToday(t){ const n = newestTool(); return !!(n && n.id===t.id && (Date.now()-t.createdAt) < NEWEST_HIGHLIGHT_MS); }
 function shareTool(id, ev){ if(ev) ev.stopPropagation(); const t = tools.find(x=>x.id===id); if(!t) return; const url = (t.type==='link' && t.url) ? t.url : 'https://sajeel-toolkit-ofc.vercel.app/'; const text = t.name + ' — Sajeel Mods Toolkit'; if(navigator.share){ navigator.share({title:t.name, text:text, url:url}).catch(()=>{}); } else { window.open('https://wa.me/?text=' + encodeURIComponent(text + ' ' + url), '_blank'); } }
 
 function renderChips(){
@@ -535,9 +544,10 @@ function render(){
   if(activeCat==='FAV') list = list.filter(t=>favs.indexOf(t.id)!==-1);
   else if(activeCat==='RECENT') list = list.filter(t=>recents.indexOf(t.id)!==-1).sort((a,b)=>recents.indexOf(a.id)-recents.indexOf(b.id));
   else if(activeCat!=='All') list = list.filter(t=>t.category===activeCat);
+  if(activeCat==='All' && !q){ const n = newestTool(); if(n && list.indexOf(n)!==-1){ list = list.filter(t=>t!==n); list.unshift(n); } }
   renderChips();
   const g = document.getElementById('grid');
-  g.innerHTML = list.map((t,i)=>`<div class="card" style="--i:${Math.min(i,8)}">
+  g.innerHTML = list.map((t,i)=>`<div class="card${isNewestToday(t)?' newest':''}" style="--i:${Math.min(i,8)}">
     <div class="ic">${esc(t.icon||'🛠️')}</div>
     <h3>${esc(t.name)}</h3>
     <span class="cat">${esc(t.category)}</span>${isNewTool(t) ? ' <span class="pill on new-pill">NEW</span>' : ''}
@@ -589,6 +599,7 @@ function openTool(id){
   else if(t.type==='random-gen') b.innerHTML = rgHTML();
   else if(t.type==='zakat-calc') b.innerHTML = zkHTML();
   else if(t.type==='ai-photo'){ b.innerHTML = aiPhotoHTML(); aiPhotoRenderHist(); }
+  else if(t.type==='ai-chat') b.innerHTML = aiChatHTML();
   else b.innerHTML = '<p style="color:var(--dim)">Is tool ki type pehchani nahi gayi.</p>';
   openModal('toolModal');
 }
@@ -1073,6 +1084,7 @@ const AI_PHOTO_STYLES = {auto:'', realistic:', realistic photo, highly detailed'
 let currentAiPhotoUrl = null;
 function aiPhotoHTML(){
   return '<label>Photo kaisi chahiye? (English mein likho — behtar banti hai)</label><input id="aiPrompt" placeholder="e.g. Cute baby lion wearing a red scarf">'
+  +'<p style="color:var(--dim);font-size:12px;margin:4px 0 0">⚠️ Naam ya text wala logo AI se theek nahi banta — scenes aur cheezein behtar banti hain.</p>'
   +'<label>Style</label><select id="aiStyle"><option value="auto">Auto</option><option value="realistic">Realistic Photo</option><option value="cartoon">Cartoon</option><option value="anime">Anime</option><option value="3d">3D Render</option><option value="painting">Painting</option></select>'
   +'<label>Size</label><select id="aiSize"><option value="512x512">Square (512x512)</option><option value="512x768">Portrait (512x768)</option><option value="768x512">Landscape (768x512)</option></select>'
   +'<div class="row"><button class="btn" onclick="aiPhotoGen()"><i class="fa fa-magic"></i> Photo Banao</button></div>'
@@ -1143,6 +1155,45 @@ function aiPhotoShowHist(url){
   if(wrap) wrap.innerHTML = '<img src="'+esc(url)+'" style="max-width:100%;border-radius:16px;margin-top:12px" alt="AI photo">'
     +'<div class="row" style="margin-top:12px"><button class="btn" onclick="aiPhotoDownload()"><i class="fa fa-download"></i> Download</button><button class="btn ghost" onclick="aiPhotoGen()">🔄 Dobara Banao</button></div>';
 }
+
+// ===== Free AI Chat (v9) — Pollinations text API, no key =====
+const AI_CHAT_SAMPLES = ['Mujhe aik chhoti kahani likh do', 'Urdu mein shayari sunao', 'YouTube video ke liye 5 viral titles batao'];
+let aiChatBusy = false;
+function aiChatHTML(){
+  return '<div id="aiChatBox" style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>'
+  +'<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">' + AI_CHAT_SAMPLES.map(s=>'<span class="chip" onclick="aiChatAsk(\''+s+'\')">'+esc(s)+'</span>').join('') + '</div>'
+  +'<div class="row"><input id="aiChatInput" placeholder="Kuch bhi poocho..." onkeydown="if(event.key===\'Enter\') aiChatSend()" style="flex:1"><button class="btn" onclick="aiChatSend()">Send</button></div>'
+  +'<div class="row" style="margin-top:8px"><button class="btn ghost" onclick="aiChatClear()">🗑️ Chat Clear Karo</button></div>'
+  +'<p style="color:var(--dim);font-size:12px;margin-top:12px">Free AI hai — kabhi kabhi jawab aane mein 10-20 second lag sakte hain. Chat band karne par history delete ho jayegi.</p>';
+}
+function aiChatAdd(role, text){
+  const box = document.getElementById('aiChatBox'); if(!box) return null;
+  const d = document.createElement('div');
+  d.className = 'ai-msg ' + role;
+  d.textContent = text;
+  box.appendChild(d);
+  box.scrollTop = box.scrollHeight;
+  return d;
+}
+async function aiChatSend(){
+  const inp = document.getElementById('aiChatInput');
+  const q = (inp.value||'').trim(); if(!q || aiChatBusy) return;
+  inp.value = '';
+  aiChatAdd('user', q);
+  aiChatBusy = true;
+  const typing = aiChatAdd('ai', '⏳ Soch raha hun...');
+  try {
+    const r = await fetch('https://text.pollinations.ai/' + encodeURIComponent(q));
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    const t = (await r.text()).trim();
+    if(typing) typing.textContent = t || '❌ Jawab nahi mila — dobara try karo.';
+  } catch(e){
+    if(typing) typing.textContent = '❌ Internet ya server ka masla hai — dobara try karo.';
+  }
+  aiChatBusy = false;
+}
+function aiChatAsk(s){ const inp = document.getElementById('aiChatInput'); if(inp) inp.value = s; aiChatSend(); }
+function aiChatClear(){ const box = document.getElementById('aiChatBox'); if(box) box.innerHTML=''; }
 
 // ===== Usage Analytics =====
 function recordUse(id){
@@ -1334,7 +1385,7 @@ function importToolsFromText(txt){
   arr.forEach(item=>{
     if(!item || typeof item !== 'object'){ invalid++; return; }
     const name = String(item.name||'').trim();
-    const type = (item.type==='link' || ['whatsapp-link','thumbnail','qr','stylish-text','roman-urdu','password-generator','word-counter','percentage-calc','wifi-qr','color-converter','age-calc','bmi-calc','discount-calc','unit-converter','case-converter','stopwatch','notes','emi-calc','random-gen','zakat-calc','ai-photo'].indexOf(item.type) !== -1) ? item.type : 'link';
+    const type = (item.type==='link' || ['whatsapp-link','thumbnail','qr','stylish-text','roman-urdu','password-generator','word-counter','percentage-calc','wifi-qr','color-converter','age-calc','bmi-calc','discount-calc','unit-converter','case-converter','stopwatch','notes','emi-calc','random-gen','zakat-calc','ai-photo','ai-chat'].indexOf(item.type) !== -1) ? item.type : 'link';
     const url = String(item.url||'').trim();
     if(!name){ invalid++; return; }
     if(type==='link' && !/^https?:\/\//.test(url)){ invalid++; return; }
@@ -1736,7 +1787,7 @@ if (FIREBASE_ON && fbAuth) {
   showMain();
   startFirebaseSync();
 }
-window.__SMTK = {importToolsFromText, toolsJSONString, getTools:()=>tools, render, renderAdmin, showAdmin, DEFAULT_TOOLS, pwHTML, wcHTML, pcHTML, wqHTML, ccHTML, acHTML, bmiHTML, dcHTML, ucHTML, tcHTML, swHTML, ntHTML, emiHTML, rgHTML, zkHTML, recordUse, getStats:()=>statsCache, validatePaymentReq, normalizePKPhone, submitPayment, approvePayment, rejectPayment, renderPayments, showBuyModal, getPayments:()=>paymentsCache, PAYMENT_PRICE, PAYMENT_NUMBER, getDeviceId, newSessionToken, claimSession, startSessionListener, stopSessionListener, getSessionBound:()=>sessionBound, setPendingFreshLogin:v=>{pendingFreshLogin=!!v;}, getPendingFreshLogin:()=>pendingFreshLogin, toggleFav, getFavs, getRecents, shareTool, showPendingStatus, clearPendingReq, saveAnnouncement, clearAnnouncement, checkLinks, renderReferral, copyRefLink, dismissAnn, isNewTool, getMyReferrals:()=>myReferrals, markCashbackSent, refPhoneFor, aiPhotoHTML, aiPhotoGen, aiPhotoDownload, aiPhotoSample, aiPhotoUrl, aiPhotoRenderHist, getCurrentAiPhotoUrl:()=>currentAiPhotoUrl};
+window.__SMTK = {importToolsFromText, toolsJSONString, getTools:()=>tools, render, renderAdmin, showAdmin, DEFAULT_TOOLS, pwHTML, wcHTML, pcHTML, wqHTML, ccHTML, acHTML, bmiHTML, dcHTML, ucHTML, tcHTML, swHTML, ntHTML, emiHTML, rgHTML, zkHTML, recordUse, getStats:()=>statsCache, validatePaymentReq, normalizePKPhone, submitPayment, approvePayment, rejectPayment, renderPayments, showBuyModal, getPayments:()=>paymentsCache, PAYMENT_PRICE, PAYMENT_NUMBER, getDeviceId, newSessionToken, claimSession, startSessionListener, stopSessionListener, getSessionBound:()=>sessionBound, setPendingFreshLogin:v=>{pendingFreshLogin=!!v;}, getPendingFreshLogin:()=>pendingFreshLogin, toggleFav, getFavs, getRecents, shareTool, showPendingStatus, clearPendingReq, saveAnnouncement, clearAnnouncement, checkLinks, renderReferral, copyRefLink, dismissAnn, isNewTool, getMyReferrals:()=>myReferrals, markCashbackSent, refPhoneFor, aiPhotoHTML, aiPhotoGen, aiPhotoDownload, aiPhotoSample, aiPhotoUrl, aiPhotoRenderHist, getCurrentAiPhotoUrl:()=>currentAiPhotoUrl, aiChatHTML, aiChatSend, aiChatAsk, aiChatClear, newestTool, isNewestToday};
 </script>
 </body>
 </html>
