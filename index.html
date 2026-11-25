@@ -158,6 +158,18 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
 .foot b{color:#fff}
 .foot a{color:var(--accent);text-decoration:none}
 @media (prefers-reduced-motion: reduce){.hero-crown{animation:none}}
+.card-actions{display:flex;gap:8px}
+.card-actions .btn{flex:1}
+.card .icon-btn{flex:0 0 44px;padding:12px 0}
+.card .icon-btn.fav-on{color:#ffd27a;border-color:rgba(255,210,122,0.5)}
+.new-pill{font-size:10px;padding:3px 8px;vertical-align:middle}
+.ann-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(135deg,rgba(255,51,102,0.18),rgba(255,179,71,0.15));border:1px solid rgba(255,179,71,0.4);border-radius:14px;padding:12px 16px;margin-bottom:16px;font-size:14px}
+.ann-bar button{background:none;border:none;color:var(--dim);cursor:pointer;font-size:16px}
+.ref-box{background:var(--card);border:1px solid var(--glass-b);border-radius:16px;padding:16px;margin-bottom:16px;font-size:14px;line-height:1.6}
+.ref-box b{display:block;margin-bottom:4px}
+.ref-row{display:flex;gap:8px;margin-top:10px}
+.ref-row input{flex:1;background:var(--glass);border:1px solid var(--glass-b);border-radius:10px;padding:10px;color:#fff;font-size:13px;min-width:0}
+.ref-count{display:block;margin-top:8px;color:#ffcf7d}
 </style>
 </head>
 <body>
@@ -176,6 +188,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
     <div class="out" id="loginErr"></div>
     <a class="btn ghost" style="display:block;margin-top:12px;text-align:center;text-decoration:none" href="https://wa.me/923061601587" target="_blank"><i class="fa-brands fa-whatsapp"></i> Admin se Login Lo</a>
     <button class="btn" style="display:block;width:100%;margin-top:12px" onclick="showBuyModal()"><i class="fa fa-crown"></i> Buy Login — Rs 199 (Lifetime)</button>
+    <div class="note" id="pendingBox" style="display:none;margin-top:16px;text-align:left"></div>
   </div>
 </div>
 
@@ -204,10 +217,22 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
     <a class="svc-btn ghost" href="https://wa.me/923061601587?text=Assalam-o-Alaikum!%20Mujhe%20website%20banwani%20hai." target="_blank"><i class="fa fa-globe"></i> Website</a>
   </div>
 
+  <div class="ref-box" id="refBox" style="display:none">
+    <b>👥 Doston ko Invite Karo</b>
+    Apna link share karo — har dost jo is link se login khareede, tumhara referral count +1 hoga.
+    <div class="ref-row"><input id="refLink" readonly><button class="btn small" onclick="copyRefLink(this)">Copy</button></div>
+    <span class="ref-count" id="refCount"></span>
+  </div>
+
   <div class="search-box">
     <i class="fa fa-search"></i>
     <input id="search" type="text" placeholder="Search tools (e.g. WhatsApp, QR)...">
   </div>
+  <div style="display:flex;gap:10px;margin-bottom:14px">
+    <button class="btn ghost small" onclick="openModal('faqModal')"><i class="fa fa-question-circle"></i> Madad / FAQ</button>
+  </div>
+
+  <div class="ann-bar" id="annBar" style="display:none"><span id="annText"></span><button onclick="dismissAnn()" aria-label="Band karo">✕</button></div>
 
   <div class="chips" id="chips"></div>
   <div class="sec-head"><b>✨ All Tools</b><span id="toolCountMain"></span></div>
@@ -243,12 +268,21 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
       <button class="btn ghost" onclick="exportHTML()"><i class="fa fa-download"></i> Export HTML</button>
       <button class="btn ghost" onclick="resetTools()"><i class="fa fa-undo"></i> Reset</button>
     </div>
+    <div class="note" style="margin-top:14px">
+      <b>📢 Announcement (sab users ko dikhega)</b>
+      <div style="display:flex;gap:8px;margin-top:8px"><input id="annInput" placeholder="e.g. Naya tool add ho gaya: YouTube Thumbnail Downloader!" style="flex:1"><button class="btn small" onclick="saveAnnouncement()">Save</button><button class="btn small ghost" onclick="clearAnnouncement()">Clear</button></div>
+    </div>
+    <div class="note" style="margin-top:14px">
+      <b>🔗 Link Check</b> — saare link tools check karo, dead links dhoondo.
+      <div style="margin-top:8px"><button class="btn small" onclick="checkLinks()">Check All Links</button></div>
+      <div id="linkCheckOut" style="margin-top:8px"></div>
+    </div>
     <div class="note" id="toolCount"></div>
     
     <div class="note" id="modeNote">Loading mode...</div>
     <div class="warn" id="firebaseRulesNote" style="display:none">
       <b>🔐 Firebase Rules:</b> Copy and paste these into your Firebase Console (Realtime Database > Rules) to secure your app.
-      <pre>{"rules":{"tools":{".read":"auth != null",".write":"auth != null && root.child('admins').child(auth.uid).exists()"},"stats":{".read":"auth != null && root.child('admins').child(auth.uid).exists()",".write":"auth != null"},"users":{".read":"auth != null && root.child('admins').child(auth.uid).exists()","$uid":{".read":"auth != null && auth.uid === $uid",".write":"auth != null && root.child('admins').child(auth.uid).exists()"}},"admins":{"$uid":{".read":"auth != null && auth.uid === $uid",".write":false}},"paymentRequests":{".read":"auth != null && root.child('admins').child(auth.uid).exists()","$req":{".write":"(!data.exists() && newData.exists()) || (auth != null && root.child('admins').child(auth.uid).exists())"}},"sessions":{".read":"auth != null && root.child('admins').child(auth.uid).exists()","$uid":{".read":"auth != null && auth.uid === $uid",".write":"auth != null && auth.uid === $uid"}}}}</pre>
+      <pre>{"rules":{"tools":{".read":"auth != null",".write":"auth != null && root.child('admins').child(auth.uid).exists()"},"stats":{".read":"auth != null && root.child('admins').child(auth.uid).exists()",".write":"auth != null"},"users":{".read":"auth != null && root.child('admins').child(auth.uid).exists()","$uid":{".read":"auth != null && auth.uid === $uid",".write":"auth != null && root.child('admins').child(auth.uid).exists()"}},"admins":{"$uid":{".read":"auth != null && auth.uid === $uid",".write":false}},"paymentRequests":{".read":"auth != null && root.child('admins').child(auth.uid).exists()","$req":{".write":"(!data.exists() && newData.exists()) || (auth != null && root.child('admins').child(auth.uid).exists())"}},"sessions":{".read":"auth != null && root.child('admins').child(auth.uid).exists()","$uid":{".read":"auth != null && auth.uid === $uid",".write":"auth != null && auth.uid === $uid"}},"meta":{".read":"auth != null",".write":"auth != null && root.child('admins').child(auth.uid).exists()"}}}</pre>
     </div>
 
     <div id="addForm" style="display:none;background:var(--card);padding:20px;border-radius:16px;margin-bottom:20px;border:1px solid var(--glass-b)">
@@ -321,7 +355,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
       <div class="out" id="userErr"></div>
     </div>
 
-    <table><thead><tr><th>User</th><th>Email</th><th>Status</th><th>Actions</th></tr></thead><tbody id="userList"></tbody></table>
+    <table><thead><tr><th>User</th><th>Email</th><th>Status</th><th>Refs</th><th>Actions</th></tr></thead><tbody id="userList"></tbody></table>
   </div>
 
   <!-- Payments Tab -->
@@ -332,7 +366,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
 </div>
 
 <!-- Modals -->
-<div class="modal-bg" id="toolModal"><div class="modal"><button class="close-x" onclick="closeModal()"><i class="fa fa-times"></i></button><h2 id="mTitle"></h2><div class="md" id="mDesc"></div><div id="mBody"></div></div></div>
+<div class="modal-bg" id="toolModal"><div class="modal"><button class="close-x" onclick="closeModal()"><i class="fa fa-times"></i></button><button class="btn small ghost" style="position:absolute;top:16px;right:52px" onclick="if(currentToolId)shareTool(currentToolId)">📤 Share</button><h2 id="mTitle"></h2><div class="md" id="mDesc"></div><div id="mBody"></div></div></div>
 
 <div class="modal-bg" id="loginModal"><div class="modal"><button class="close-x" onclick="closeModal()"><i class="fa fa-times"></i></button><h2>Admin Login</h2><div class="md" id="adminLoginDesc">Enter password to access Admin Panel.</div>
   <div id="adminEmailWrap" style="display:none"><label>Admin Email</label><input id="adminEmail" type="email" placeholder="admin@email.com"></div>
@@ -340,6 +374,15 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
   <div class="row"><button class="btn" onclick="doLogin()">Login</button></div>
   <div class="out" id="adminLoginErr" style="color:var(--danger)"></div>
 </div></div>
+
+<div class="modal-bg" id="faqModal"><div class="modal"><button class="close-x" onclick="closeModal()"><i class="fa fa-times"></i></button><h2>❓ Madad / FAQ</h2><div class="md">
+<b>1. Login kaise khareedun?</b><br>Login screen par "Buy Login — Rs 199" dabao, Rs 199 JazzCash <b>03291394723</b> (Sajeel Raza) par bhejo, form bharo aur Submit karo, phir payment ka screenshot WhatsApp par bhej do.<br><br>
+<b>2. Payment ke baad login kab milega?</b><br>Admin approve karte hi tumhare WhatsApp par login bhej diya jayega. Tumhari request ki halat (Pending) login screen par bhi dikhegi.<br><br>
+<b>3. Ek device ka kya matlab hai?</b><br>Ek login sirf ek device par chalega. Doosre device par login karoge to pehla device logout ho jayega.<br><br>
+<b>4. Password bhool gaya to?</b><br>Admin ko WhatsApp karo (0306 1601587) — wo tumhara password reset kar dega.<br><br>
+<b>5. Koi tool ka link kaam nahi kar raha?</b><br>Admin ko WhatsApp par tool ka naam bhej do, theek kar diya jayega.<br><br>
+<b>6. Naya tool chahiye?</b><br>WhatsApp par suggest karo — achha tool hua to add kar diya jayega.
+</div></div></div>
 
 <div class="modal-bg" id="buyModal"><div class="modal"><button class="close-x" onclick="closeModal()"><i class="fa fa-times"></i></button><h2>Buy Lifetime Login — Rs 199</h2><div class="md">Step 1: <b>Rs 199</b> JazzCash par bhejo — <b>03291394723</b> (Sajeel Raza)<br>Step 2: Neeche form bharo aur Submit karo.<br>Step 3: Payment ka screenshot WhatsApp par bhej do — phir login milega.</div>
   <label>Your Name *</label><input id="bName" placeholder="Ali Raza">
@@ -393,6 +436,10 @@ const DEFAULT_TOOLS = [
 const LS_KEY = 'sm_tools_v1', LS_PASS = 'sm_admin_pass';
 let tools = loadTools();
 let activeCat = 'All', editingId = null;
+let myReferrals = 0, annBound = false, currentToolId = null, currentAnnAt = null;
+const LS_FAV = 'smtk_fav_', LS_RECENT = 'smtk_recent_', LS_PENDING = 'smtk_pending_req', LS_REF = 'smtk_ref';
+const NEW_BADGE_MS = 14 * 24 * 3600 * 1000;
+try { const rp = new URLSearchParams(location.search).get('ref'); if(rp) localStorage.setItem(LS_REF, rp); } catch(e){}
 
 function getPass(){ return localStorage.getItem(LS_PASS) || ADMIN_PASSWORD_DEFAULT; }
 function loadTools(){
@@ -404,9 +451,43 @@ function saveTools(){
   if (FIREBASE_ON && fbDb) { fbDb.ref('tools').set(tools); return; }
   localStorage.setItem(LS_KEY, JSON.stringify(tools));
 }
+function startAnnouncementListener(){
+  if(!FIREBASE_ON || !fbDb || annBound) return;
+  annBound = true;
+  fbDb.ref('meta/announcement').on('value', snap=>{
+    const v = snap.val();
+    const bar = document.getElementById('annBar');
+    if(!bar) return;
+    if(v && v.text){
+      currentAnnAt = v.at || null;
+      let dismissed = null;
+      try { dismissed = localStorage.getItem('smtk_ann_dismissed'); } catch(e){}
+      if(currentAnnAt && String(currentAnnAt) === dismissed){ bar.style.display='none'; return; }
+      document.getElementById('annText').textContent = v.text;
+      bar.style.display='flex';
+    } else { bar.style.display='none'; }
+  }, ()=>{});
+}
+function dismissAnn(){
+  try { if(currentAnnAt) localStorage.setItem('smtk_ann_dismissed', String(currentAnnAt)); } catch(e){}
+  const bar = document.getElementById('annBar'); if(bar) bar.style.display='none';
+}
+function saveAnnouncement(){
+  const t = (document.getElementById('annInput').value||'').trim();
+  if(!t){ alert('Pehle announcement likho.'); return; }
+  if(!fbDb){ alert('Firebase not connected.'); return; }
+  fbDb.ref('meta/announcement').set({text:t, at:Date.now()}).then(()=>alert('✅ Announcement live!')).catch(e=>alert('❌ ' + e.message));
+}
+function clearAnnouncement(){
+  if(!fbDb){ alert('Firebase not connected.'); return; }
+  if(!confirm('Announcement hatana hai?')) return;
+  fbDb.ref('meta/announcement').remove();
+  document.getElementById('annInput').value='';
+}
 function startFirebaseSync(){
   if (!FIREBASE_ON || !fbDb || toolsBound) return;
   toolsBound = true;
+  startAnnouncementListener();
   fbDb.ref('tools').on('value', snap => {
     const v = snap.val();
     if (v) {
@@ -425,8 +506,20 @@ function uid(){ return 't' + Date.now().toString(36) + Math.floor(Math.random()*
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function cats(){ return [...new Set(tools.map(t=>t.category))]; }
 
+function favKey(){ return LS_FAV + (currentUser ? currentUser.uid : 'guest'); }
+function recentKey(){ return LS_RECENT + (currentUser ? currentUser.uid : 'guest'); }
+function getFavs(){ try { return JSON.parse(localStorage.getItem(favKey()) || '[]'); } catch(e){ return []; } }
+function isFav(id){ return getFavs().indexOf(id) !== -1; }
+function toggleFav(id, ev){ if(ev) ev.stopPropagation(); let f = getFavs(); const i = f.indexOf(id); if(i===-1) f.push(id); else f.splice(i,1); try { localStorage.setItem(favKey(), JSON.stringify(f)); } catch(e){} render(); }
+function getRecents(){ try { return JSON.parse(localStorage.getItem(recentKey()) || '[]'); } catch(e){ return []; } }
+function pushRecent(id){ try { let r = getRecents().filter(x=>x!==id); r.unshift(id); r = r.slice(0,8); localStorage.setItem(recentKey(), JSON.stringify(r)); } catch(e){} }
+function isNewTool(t){ return !!(t.createdAt && (Date.now() - t.createdAt) < NEW_BADGE_MS); }
+function shareTool(id, ev){ if(ev) ev.stopPropagation(); const t = tools.find(x=>x.id===id); if(!t) return; const url = (t.type==='link' && t.url) ? t.url : 'https://sajeel-toolkit-ofc.vercel.app/'; const text = t.name + ' — Sajeel Mods Toolkit'; if(navigator.share){ navigator.share({title:t.name, text:text, url:url}).catch(()=>{}); } else { window.open('https://wa.me/?text=' + encodeURIComponent(text + ' ' + url), '_blank'); } }
+
 function renderChips(){
   const c = cats(); let h = '<span class="chip'+(activeCat==='All'?' active':'')+'" onclick="setCat(\'All\')">All</span>';
+  h += '<span class="chip'+(activeCat==='FAV'?' active':'')+'" onclick="setCat(\'FAV\')">⭐ Favorites</span>';
+  h += '<span class="chip'+(activeCat==='RECENT'?' active':'')+'" onclick="setCat(\'RECENT\')">🕐 Recent</span>';
   c.forEach(x=>{ h += '<span class="chip'+(activeCat===x?' active':'')+'" onclick="setCat(\''+esc(x)+'\')">'+esc(x)+'</span>'; });
   document.getElementById('chips').innerHTML = h;
 }
@@ -434,15 +527,23 @@ function setCat(c){ activeCat = c; render(); }
 
 function render(){
   const q = (document.getElementById('search').value||'').toLowerCase();
-  const list = tools.filter(t => (activeCat==='All' || t.category===activeCat) && (!q || (t.name+' '+t.desc+' '+t.category).toLowerCase().includes(q)));
+  const favs = getFavs(), recents = getRecents();
+  let list = tools.filter(t => (!q || (t.name+' '+t.desc+' '+t.category).toLowerCase().includes(q)));
+  if(activeCat==='FAV') list = list.filter(t=>favs.indexOf(t.id)!==-1);
+  else if(activeCat==='RECENT') list = list.filter(t=>recents.indexOf(t.id)!==-1).sort((a,b)=>recents.indexOf(a.id)-recents.indexOf(b.id));
+  else if(activeCat!=='All') list = list.filter(t=>t.category===activeCat);
   renderChips();
   const g = document.getElementById('grid');
   g.innerHTML = list.map((t,i)=>`<div class="card" style="--i:${Math.min(i,8)}">
     <div class="ic">${esc(t.icon||'🛠️')}</div>
     <h3>${esc(t.name)}</h3>
-    <span class="cat">${esc(t.category)}</span>
+    <span class="cat">${esc(t.category)}</span>${isNewTool(t) ? ' <span class="pill on new-pill">NEW</span>' : ''}
     <p>${esc(t.desc)}</p>
-    <button class="btn" onclick="openTool('${t.id}')">Open Tool <i class="fa fa-arrow-right"></i></button>
+    <div class="card-actions">
+      <button class="btn" onclick="openTool('${t.id}')">Open Tool <i class="fa fa-arrow-right"></i></button>
+      <button class="btn icon-btn ${isFav(t.id)?'fav-on':''}" title="Favorite" onclick="toggleFav('${t.id}', event)">${isFav(t.id)?'★':'☆'}</button>
+      <button class="btn icon-btn" title="Share" onclick="shareTool('${t.id}', event)">📤</button>
+    </div>
   </div>`).join('');
   document.getElementById('empty').style.display = list.length ? 'none' : 'block';
   const tcm = document.getElementById('toolCountMain'); if(tcm) tcm.textContent = list.length + ' of ' + tools.length + ' tools';
@@ -457,6 +558,8 @@ document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click', e=
 
 function openTool(id){
   const t = tools.find(x=>x.id===id); if(!t) return;
+  currentToolId = id;
+  pushRecent(id);
   recordUse(t.id);
   if(t.type==='link'){ window.open(t.url, '_blank'); return; }
   document.getElementById('mTitle').textContent = (t.icon||'🛠️')+' '+t.name;
@@ -1085,7 +1188,7 @@ function saveTool(){
     const t = tools.find(x=>x.id===editingId);
     Object.assign(t, {name, desc, category:cat, icon, type, url: type==='link'?url:''});
   } else {
-    tools.push({id:uid(), name, desc, category:cat, icon, type, url: type==='link'?url:''});
+    tools.push({id:uid(), name, desc, category:cat, icon, type, url: type==='link'?url:'', createdAt:Date.now()});
   }
   saveTools(); hideAddForm(); renderAdmin(); render();
 }
@@ -1156,7 +1259,7 @@ function importToolsFromText(txt){
     if(type==='link' && !/^https?:\/\//.test(url)){ invalid++; return; }
     if(haveName.has(name.toLowerCase())){ skipped++; return; }
     if(type==='link' && url && haveUrl.has(url)){ skipped++; return; }
-    fresh.push({id:uid(), name:name, desc:String(item.desc||name).trim(), category:String(item.category||'General').trim() || 'General', icon:String(item.icon||'🛠️').trim() || '🛠️', type:type, url: type==='link' ? url : ''});
+    fresh.push({id:uid(), name:name, desc:String(item.desc||name).trim(), category:String(item.category||'General').trim() || 'General', icon:String(item.icon||'🛠️').trim() || '🛠️', type:type, url: type==='link' ? url : '', createdAt:Date.now()});
     haveName.add(name.toLowerCase());
     if(url) haveUrl.add(url);
     added++;
@@ -1185,12 +1288,55 @@ function importTools(){
   }
 }
 
+// ===== Link Check (v7) =====
+async function checkLinks(){
+  const out = document.getElementById('linkCheckOut');
+  if(!out) return;
+  if(typeof fetch === 'undefined'){ out.textContent = '❌ Is browser mein link check nahi chal sakta.'; return; }
+  const links = tools.filter(t=>t.type==='link' && t.url);
+  if(!links.length){ out.textContent = 'Koi link tool nahi hai.'; return; }
+  out.innerHTML = '⏳ ' + links.length + ' links check ho rahe hain...';
+  const results = await Promise.all(links.map(async t=>{
+    const ctrl = new AbortController();
+    const timer = setTimeout(()=>ctrl.abort(), 8000);
+    try { await fetch(t.url, {method:'HEAD', mode:'no-cors', cache:'no-store', signal:ctrl.signal}); clearTimeout(timer); return {t:t, ok:true}; }
+    catch(e){ clearTimeout(timer); return {t:t, ok:false}; }
+  }));
+  const dead = results.filter(r=>!r.ok);
+  let h = '✅ ' + (results.length - dead.length) + ' OK • ❌ ' + dead.length + ' dead';
+  if(dead.length){
+    h += '<div style="margin-top:8px">' + dead.map(r=>'<div style="padding:6px 0;border-top:1px solid var(--glass-b)">❌ <b>'+esc(r.t.name)+'</b><br><span style="color:var(--dim);font-size:12px">'+esc(r.t.url)+'</span> <button class="btn small danger" onclick="delTool(\''+r.t.id+'\')">Delete</button></div>').join('') + '</div>';
+  }
+  h += '<div style="color:var(--dim);font-size:12px;margin-top:8px">Note: jo sites bot ko block karti hain (jaise Canva) wo bhi OK dikh sakti hain — dead sirf wo hain jo bilkul nahi khulti.</div>';
+  out.innerHTML = h;
+}
+
 // ===== Auth & Routing =====
 function showLogin(){
   document.getElementById('loginView').style.display='block';
   document.getElementById('mainView').style.display='none';
   document.getElementById('adminView').style.display='none';
+  showPendingStatus();
 }
+function showPendingStatus(){
+  const box = document.getElementById('pendingBox');
+  if(!box) return;
+  let p = null;
+  try { p = JSON.parse(localStorage.getItem(LS_PENDING) || 'null'); } catch(e){}
+  if(!p || !p.email){ box.style.display='none'; return; }
+  box.innerHTML = '⏳ <b>Request pending hai</b><br>' + esc(p.name||'') + ' (' + esc(p.email) + ') — approval ke baad login WhatsApp par milega. Payment ka screenshot bhej diya? <a href="https://wa.me/923061601587?text=' + encodeURIComponent('Assalam o Alaikum! Meri toolkit login request pending hai. Email: ' + p.email) + '" target="_blank">WhatsApp karo</a> • <a href="#" onclick="clearPendingReq();return false;">Dismiss</a>';
+  box.style.display='block';
+}
+function clearPendingReq(){ try { localStorage.removeItem(LS_PENDING); } catch(e){} showPendingStatus(); }
+function renderReferral(){
+  const box = document.getElementById('refBox');
+  if(!box) return;
+  if(!currentUser){ box.style.display='none'; return; }
+  box.style.display='block';
+  document.getElementById('refLink').value = 'https://sajeel-toolkit-ofc.vercel.app/?ref=' + currentUser.uid;
+  document.getElementById('refCount').textContent = 'Tumhare successful referrals: ' + (myReferrals||0);
+}
+function copyRefLink(btn){ copyText(document.getElementById('refLink').value, btn); }
 function showMain(){
   document.getElementById('loginView').style.display='none';
   document.getElementById('mainView').style.display='block';
@@ -1208,6 +1354,7 @@ function showMain(){
   document.getElementById('adminBtn').style.display = showAdminBtn ? 'flex' : 'none';
   document.getElementById('adminBtn').style.alignItems = 'center';
   render();
+  renderReferral();
 }
 function doUserLogin(){
   const email = (document.getElementById('loginEmail').value||'').trim();
@@ -1241,6 +1388,8 @@ function routeUser(user){
     const u = snap.val();
     if(!u && !isAdmin){ fbAuth.signOut(); showLoginErr('Account not activated. Contact admin.'); return; }
     if(u && u.active === false){ fbAuth.signOut(); showLoginErr('Account suspended. Contact admin.'); return; }
+    myReferrals = (u && u.referrals) || 0;
+    try { localStorage.removeItem(LS_PENDING); } catch(e){}
     showMain();
     startFirebaseSync();
     if(pendingFreshLogin){ pendingFreshLogin = false; claimSession().then(()=>startSessionListener()); }
@@ -1357,8 +1506,8 @@ function startUsersListener(){
 function renderUsers(){
   const tb = document.getElementById('userList');
   if(!tb) return;
-  if(!usersCache.length){ tb.innerHTML = '<tr><td colspan="4" style="color:var(--dim)">No users found.</td></tr>'; return; }
-  tb.innerHTML = usersCache.map(u=>'<tr><td><b>'+esc(u.name||'—')+'</b></td><td>'+esc(u.email||'')+'</td><td><span class="pill '+(u.active===false?'off':'on')+'">'+(u.active===false?'BLOCKED':'ACTIVE')+'</span></td><td style="white-space:nowrap"><button class="btn small ghost" onclick="toggleUser(\''+u.uid+'\','+(u.active===false?'true':'false')+')">'+(u.active===false?'Enable':'Disable')+'</button> <button class="btn small danger" onclick="deleteUser(\''+u.uid+'\')"><i class="fa fa-trash"></i></button></td></tr>').join('');
+  if(!usersCache.length){ tb.innerHTML = '<tr><td colspan="5" style="color:var(--dim)">No users found.</td></tr>'; return; }
+  tb.innerHTML = usersCache.map(u=>'<tr><td><b>'+esc(u.name||'—')+'</b></td><td>'+esc(u.email||'')+'</td><td><span class="pill '+(u.active===false?'off':'on')+'">'+(u.active===false?'BLOCKED':'ACTIVE')+'</span></td><td>'+(u.referrals||0)+'</td><td style="white-space:nowrap"><button class="btn small ghost" onclick="toggleUser(\''+u.uid+'\','+(u.active===false?'true':'false')+')">'+(u.active===false?'Enable':'Disable')+'</button> <button class="btn small danger" onclick="deleteUser(\''+u.uid+'\')"><i class="fa fa-trash"></i></button></td></tr>').join('');
 }
 function toggleUser(uid, toActive){ fbDb.ref('users/' + uid + '/active').set(toActive); }
 function deleteUser(uid){
@@ -1405,7 +1554,11 @@ async function submitPayment(){
   if(v){ err.textContent = '❌ ' + v; err.classList.add('show'); return; }
   if(!fbDb){ err.textContent = '❌ Firebase not connected. Try again later.'; err.classList.add('show'); return; }
   try{
-    await fbDb.ref('paymentRequests').push({name:req.name, phone:normalizePKPhone(req.phone), email:req.email, pass:req.pass, amount:PAYMENT_PRICE, method:PAYMENT_METHOD, status:'pending', createdAt:Date.now()});
+    let refCode = null;
+    try { refCode = localStorage.getItem(LS_REF) || null; } catch(e){}
+    await fbDb.ref('paymentRequests').push({name:req.name, phone:normalizePKPhone(req.phone), email:req.email, pass:req.pass, amount:PAYMENT_PRICE, method:PAYMENT_METHOD, status:'pending', createdAt:Date.now(), ref:refCode});
+    try { localStorage.setItem(LS_PENDING, JSON.stringify({email:req.email, name:req.name, at:Date.now()})); } catch(e){}
+    showPendingStatus();
     ['bName','bPhone','bEmail','bPass'].forEach(id=>{ document.getElementById(id).value=''; });
     ok.textContent = '✅ Request sent! Ab payment ka screenshot WhatsApp par bhej do — approval ke baad login milega.';
     ok.classList.add('show');
@@ -1440,7 +1593,7 @@ function renderPayments(){
     else if(p.status==='approved') acts = '<a class="btn small" style="text-decoration:none" href="'+wa+'" target="_blank"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>';
     else acts = '<span style="color:var(--dim)">Rejected</span>';
     acts += ' <button class="btn small ghost" onclick="deletePayment(\''+p.id+'\')"><i class="fa fa-trash"></i></button>';
-    return '<tr><td><b>'+esc(p.name||'—')+'</b></td><td>'+esc(p.phone||'')+'</td><td>'+esc(p.email||'')+'</td><td><span class="pill '+(p.status==='approved'?'on':p.status==='rejected'?'off':'')+'">'+esc((p.status||'pending').toUpperCase())+'</span></td><td style="white-space:nowrap">'+acts+'</td></tr>';
+    return '<tr><td><b>'+esc(p.name||'—')+'</b>' + (p.ref ? '<br><span style="color:var(--dim);font-size:11px">Ref: '+esc(String(p.ref).slice(0,8))+'</span>' : '') + '</td><td>'+esc(p.phone||'')+'</td><td>'+esc(p.email||'')+'</td><td><span class="pill '+(p.status==='approved'?'on':p.status==='rejected'?'off':'')+'">'+esc((p.status||'pending').toUpperCase())+'</span></td><td style="white-space:nowrap">'+acts+'</td></tr>';
   }).join('');
 }
 async function approvePayment(id){
@@ -1449,9 +1602,15 @@ async function approvePayment(id){
   if(!secondaryApp){ alert('❌ Firebase not connected.'); return; }
   try{
     const cred = await secondaryApp.auth().createUserWithEmailAndPassword(r.email, r.pass);
-    await fbDb.ref('users/' + cred.user.uid).set({name:r.name, email:r.email, active:true, createdAt:Date.now(), paidVia:PAYMENT_METHOD, amount:PAYMENT_PRICE});
+    await fbDb.ref('users/' + cred.user.uid).set({name:r.name, email:r.email, active:true, createdAt:Date.now(), paidVia:PAYMENT_METHOD, amount:PAYMENT_PRICE, referredBy:r.ref || null});
     await secondaryApp.auth().signOut();
     await fbDb.ref('paymentRequests/' + id).update({status:'approved', uid:cred.user.uid, decidedAt:Date.now()});
+    if(r.ref){
+      try {
+        const rs = await fbDb.ref('users/' + r.ref).once('value');
+        if(rs.exists()){ const rv = rs.val() || {}; await fbDb.ref('users/' + r.ref + '/referrals').set((rv.referrals||0)+1); }
+      } catch(e){ console.log('referral count failed', e); }
+    }
     alert('✅ Login created!\n\nEmail: ' + r.email + '\nPassword: ' + r.pass + '\n\nAb WhatsApp button se user ko login bhej do.');
   }catch(e){
     alert('❌ ' + (e.code==='auth/email-already-in-use' ? 'Email already in use — user se naya email mango.' : e.message));
@@ -1476,7 +1635,7 @@ if (FIREBASE_ON && fbAuth) {
   showMain();
   startFirebaseSync();
 }
-window.__SMTK = {importToolsFromText, toolsJSONString, getTools:()=>tools, render, renderAdmin, showAdmin, DEFAULT_TOOLS, pwHTML, wcHTML, pcHTML, wqHTML, ccHTML, acHTML, bmiHTML, dcHTML, ucHTML, tcHTML, swHTML, ntHTML, emiHTML, rgHTML, zkHTML, recordUse, getStats:()=>statsCache, validatePaymentReq, normalizePKPhone, submitPayment, approvePayment, rejectPayment, renderPayments, showBuyModal, getPayments:()=>paymentsCache, PAYMENT_PRICE, PAYMENT_NUMBER, getDeviceId, newSessionToken, claimSession, startSessionListener, stopSessionListener, getSessionBound:()=>sessionBound, setPendingFreshLogin:v=>{pendingFreshLogin=!!v;}, getPendingFreshLogin:()=>pendingFreshLogin};
+window.__SMTK = {importToolsFromText, toolsJSONString, getTools:()=>tools, render, renderAdmin, showAdmin, DEFAULT_TOOLS, pwHTML, wcHTML, pcHTML, wqHTML, ccHTML, acHTML, bmiHTML, dcHTML, ucHTML, tcHTML, swHTML, ntHTML, emiHTML, rgHTML, zkHTML, recordUse, getStats:()=>statsCache, validatePaymentReq, normalizePKPhone, submitPayment, approvePayment, rejectPayment, renderPayments, showBuyModal, getPayments:()=>paymentsCache, PAYMENT_PRICE, PAYMENT_NUMBER, getDeviceId, newSessionToken, claimSession, startSessionListener, stopSessionListener, getSessionBound:()=>sessionBound, setPendingFreshLogin:v=>{pendingFreshLogin=!!v;}, getPendingFreshLogin:()=>pendingFreshLogin, toggleFav, getFavs, getRecents, shareTool, showPendingStatus, clearPendingReq, saveAnnouncement, clearAnnouncement, checkLinks, renderReferral, copyRefLink, dismissAnn, isNewTool, getMyReferrals:()=>myReferrals};
 </script>
 </body>
 </html>
