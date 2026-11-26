@@ -110,6 +110,13 @@ th{color:var(--dim);font-size:12px;font-weight:500}
 .center-box input{width:100%;padding:14px;border-radius:12px;border:1px solid var(--glass-b);background:var(--input);color:var(--text);outline:none;font-size:14px;margin-top:12px;transition:0.3s}
 .center-box input:focus{border-color:var(--accent)}
 .center-box .btn{width:100%;margin-top:20px}
+.btn-gold{background:linear-gradient(135deg,#ffb347,#ff8c1a)!important;color:#231303!important;font-size:16px!important;padding:15px 20px!important;box-shadow:0 4px 20px rgba(255,179,71,0.45)}
+.login-trust{font-size:12.5px;color:var(--dim);line-height:1.8;text-align:center;margin-top:14px}
+.login-trust b{color:#ffd27a}
+.login-preview{max-width:1000px;margin:8px auto 0}
+.login-preview h3{text-align:center;font-size:20px;margin:10px 0 6px}
+.lp-sub{text-align:center;color:var(--dim);font-size:13px;margin-bottom:16px}
+.lp-more{text-align:center;color:var(--dim);font-size:13px;margin-top:16px}
 
 /* ===== Cinematic upgrade (Sajeel Mods) ===== */
 .sm-grain{position:fixed;inset:0;pointer-events:none;z-index:200;opacity:.05;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E")}
@@ -184,15 +191,22 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
   <div class="center-box">
     <div style="text-align:center;margin-bottom:24px">
       <div class="logo">SAJEEL <span>MODS</span></div>
-      <p style="color:var(--dim);font-size:13px;margin-top:8px">Premium Toolkit • Login Required</p>
+      <p style="color:var(--dim);font-size:13px;margin-top:8px">100+ Tools • Free AI Chat • No Ads</p>
     </div>
     <input id="loginEmail" type="email" placeholder="Email Address">
     <input id="loginPass" type="password" placeholder="Password" onkeydown="if(event.key==='Enter')doUserLogin()">
     <button class="btn" onclick="doUserLogin()"><i class="fa fa-unlock-alt"></i> Login</button>
     <div class="out" id="loginErr"></div>
-    <a class="btn ghost" style="display:block;margin-top:12px;text-align:center;text-decoration:none" href="https://wa.me/923061601587" target="_blank"><i class="fa-brands fa-whatsapp"></i> Admin se Login Lo</a>
-    <button class="btn" style="display:block;width:100%;margin-top:12px" onclick="showBuyModal()"><i class="fa fa-crown"></i> Buy Login — Rs 199 (Lifetime)</button>
+    <button class="btn btn-gold" style="display:block;width:100%;margin-top:12px" onclick="showBuyModal()"><i class="fa fa-crown"></i> Buy Login — Rs 199 (Lifetime)</button>
+    <div class="login-trust">💰 JazzCash <b>03291394723</b> (Sajeel Raza)<br>Approve hote hi login WhatsApp par milega.<br>🎉 Login ke baad apna referral link share karo — har dost par <b>Rs 50 cashback</b>!</div>
+    <a href="https://wa.me/923061601587" target="_blank" style="display:block;text-align:center;margin-top:14px;font-size:13px;color:var(--dim);text-decoration:none">Sawal hai? WhatsApp karo →</a>
     <div class="note" id="pendingBox" style="display:none;margin-top:16px;text-align:left"></div>
+  </div>
+  <div class="login-preview">
+    <h3>Andar kya hai? 👇</h3>
+    <p class="lp-sub">100+ tools — 2 tools abhi free try karo, baaki login ke baad.</p>
+    <div class="grid" id="loginPreview"></div>
+    <p class="lp-more">+ Aur 100+ tools — Courses, AI Tools, WhatsApp Tools aur bohat kuch, login ke baad.</p>
   </div>
 </div>
 
@@ -1446,11 +1460,26 @@ async function checkLinks(){
 }
 
 // ===== Auth & Routing =====
+// ===== Login preview + free taste (v11) =====
+const FREE_PREVIEW_IDS = ['t1', 't3']; // WhatsApp Link + QR: pure client-side, work without login
+function renderLoginPreview(){
+  const g = document.getElementById('loginPreview');
+  if(!g) return;
+  g.innerHTML = DEFAULT_TOOLS.map((t, i)=>{
+    const free = FREE_PREVIEW_IDS.indexOf(t.id) !== -1;
+    const badge = free ? '<span class="pill on">FREE — Try karo</span>' : '<span class="pill off">🔒 Login Required</span>';
+    const btn = free
+      ? '<button class="btn" onclick="openTool(\''+t.id+'\')">✨ Try Free</button>'
+      : '<button class="btn ghost" onclick="showBuyModal()">🔒 Login ke baad</button>';
+    return '<div class="card" style="--i:'+Math.min(i,8)+'"><div class="ic">'+esc(t.icon||'🛠️')+'</div><h3>'+esc(t.name)+'</h3><span class="cat">'+esc(t.category)+'</span> '+badge+'<p>'+esc(t.desc)+'</p><div class="card-actions">'+btn+'</div></div>';
+  }).join('');
+}
 function showLogin(){
   document.getElementById('loginView').style.display='block';
   document.getElementById('mainView').style.display='none';
   document.getElementById('adminView').style.display='none';
   showPendingStatus();
+  renderLoginPreview();
 }
 function showPendingStatus(){
   const box = document.getElementById('pendingBox');
@@ -1839,7 +1868,7 @@ if (FIREBASE_ON && fbAuth) {
   showMain();
   startFirebaseSync();
 }
-window.__SMTK = {importToolsFromText, toolsJSONString, getTools:()=>tools, render, renderAdmin, showAdmin, DEFAULT_TOOLS, pwHTML, wcHTML, pcHTML, wqHTML, ccHTML, acHTML, bmiHTML, dcHTML, ucHTML, tcHTML, swHTML, ntHTML, emiHTML, rgHTML, zkHTML, recordUse, getStats:()=>statsCache, validatePaymentReq, normalizePKPhone, submitPayment, approvePayment, rejectPayment, renderPayments, showBuyModal, getPayments:()=>paymentsCache, PAYMENT_PRICE, PAYMENT_NUMBER, getDeviceId, newSessionToken, claimSession, startSessionListener, stopSessionListener, getSessionBound:()=>sessionBound, setPendingFreshLogin:v=>{pendingFreshLogin=!!v;}, getPendingFreshLogin:()=>pendingFreshLogin, toggleFav, getFavs, getRecents, shareTool, showPendingStatus, clearPendingReq, saveAnnouncement, clearAnnouncement, checkLinks, renderReferral, copyRefLink, dismissAnn, isNewTool, getMyReferrals:()=>myReferrals, markCashbackSent, refPhoneFor, aiPhotoHTML, aiPhotoGen, aiPhotoDownload, aiPhotoSample, aiPhotoUrl, aiPhotoRenderHist, getCurrentAiPhotoUrl:()=>currentAiPhotoUrl, aiChatHTML, aiChatSend, aiChatAsk, aiChatClear, newestTool, isNewestToday, startMyStatus, stopMyStatus, startStatusListener, isOnlineNow, fmtDT, getStatusCache:()=>statusCache, getUsersCache:()=>usersCache};
+window.__SMTK = {importToolsFromText, toolsJSONString, getTools:()=>tools, render, renderAdmin, showAdmin, DEFAULT_TOOLS, pwHTML, wcHTML, pcHTML, wqHTML, ccHTML, acHTML, bmiHTML, dcHTML, ucHTML, tcHTML, swHTML, ntHTML, emiHTML, rgHTML, zkHTML, recordUse, getStats:()=>statsCache, validatePaymentReq, normalizePKPhone, submitPayment, approvePayment, rejectPayment, renderPayments, showBuyModal, getPayments:()=>paymentsCache, PAYMENT_PRICE, PAYMENT_NUMBER, getDeviceId, newSessionToken, claimSession, startSessionListener, stopSessionListener, getSessionBound:()=>sessionBound, setPendingFreshLogin:v=>{pendingFreshLogin=!!v;}, getPendingFreshLogin:()=>pendingFreshLogin, toggleFav, getFavs, getRecents, shareTool, showPendingStatus, clearPendingReq, saveAnnouncement, clearAnnouncement, checkLinks, renderReferral, copyRefLink, dismissAnn, isNewTool, getMyReferrals:()=>myReferrals, markCashbackSent, refPhoneFor, aiPhotoHTML, aiPhotoGen, aiPhotoDownload, aiPhotoSample, aiPhotoUrl, aiPhotoRenderHist, getCurrentAiPhotoUrl:()=>currentAiPhotoUrl, aiChatHTML, aiChatSend, aiChatAsk, aiChatClear, newestTool, isNewestToday, startMyStatus, stopMyStatus, startStatusListener, isOnlineNow, fmtDT, getStatusCache:()=>statusCache, getUsersCache:()=>usersCache, renderLoginPreview, FREE_PREVIEW_IDS};
 </script>
 </body>
 </html>
