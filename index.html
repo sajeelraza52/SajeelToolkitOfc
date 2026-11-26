@@ -204,7 +204,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
   </div>
   <div class="login-preview">
     <h3>Andar kya hai? 👇</h3>
-    <p class="lp-sub">100+ tools — 2 tools abhi free try karo, baaki login ke baad.</p>
+    <p class="lp-sub">2 tools abhi free try karo — naye courses aur baaki tools login ke baad.</p>
     <div class="grid" id="loginPreview"></div>
     <p class="lp-more">+ Aur 100+ tools — Courses, AI Tools, WhatsApp Tools aur bohat kuch, login ke baad.</p>
   </div>
@@ -299,8 +299,8 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;back
     
     <div class="note" id="modeNote">Loading mode...</div>
     <div class="warn" id="firebaseRulesNote" style="display:none">
-      <b>🔐 Firebase Rules:</b> Copy and paste these into your Firebase Console (Realtime Database > Rules) to secure your app.
-      <pre>{"rules":{"tools":{".read":"auth != null",".write":"auth != null && root.child('admins').child(auth.uid).exists()"},"stats":{".read":"auth != null && root.child('admins').child(auth.uid).exists()",".write":"auth != null"},"users":{".read":"auth != null && root.child('admins').child(auth.uid).exists()","$uid":{".read":"auth != null && auth.uid === $uid",".write":"auth != null && root.child('admins').child(auth.uid).exists()"}},"admins":{"$uid":{".read":"auth != null && auth.uid === $uid",".write":false}},"paymentRequests":{".read":"auth != null && root.child('admins').child(auth.uid).exists()","$req":{".write":"(!data.exists() && newData.exists()) || (auth != null && root.child('admins').child(auth.uid).exists())"}},"sessions":{".read":"auth != null && root.child('admins').child(auth.uid).exists()","$uid":{".read":"auth != null && auth.uid === $uid",".write":"auth != null && auth.uid === $uid"}},"meta":{".read":"auth != null",".write":"auth != null && root.child('admins').child(auth.uid).exists()"},"userStatus":{".read":"auth != null && root.child('admins').child(auth.uid).exists()","$uid":{".read":"auth != null && auth.uid === $uid",".write":"auth != null && auth.uid === $uid"}}}}</pre>
+      <b>🔐 Firebase Rules:</b> Copy and paste these into your Firebase Console (Realtime Database > Rules) to secure your app.<br><b>v12:</b> tools ki read public hai taake login page par naye tools (courses) bina login dikh sakein — write sirf admin ki hai. Rules publish karne ke baad preview live ho jayega.
+      <pre>{"rules":{"tools":{".read":true,".write":"auth != null && root.child('admins').child(auth.uid).exists()"},"stats":{".read":"auth != null && root.child('admins').child(auth.uid).exists()",".write":"auth != null"},"users":{".read":"auth != null && root.child('admins').child(auth.uid).exists()","$uid":{".read":"auth != null && auth.uid === $uid",".write":"auth != null && root.child('admins').child(auth.uid).exists()"}},"admins":{"$uid":{".read":"auth != null && auth.uid === $uid",".write":false}},"paymentRequests":{".read":"auth != null && root.child('admins').child(auth.uid).exists()","$req":{".write":"(!data.exists() && newData.exists()) || (auth != null && root.child('admins').child(auth.uid).exists())"}},"sessions":{".read":"auth != null && root.child('admins').child(auth.uid).exists()","$uid":{".read":"auth != null && auth.uid === $uid",".write":"auth != null && auth.uid === $uid"}},"meta":{".read":"auth != null",".write":"auth != null && root.child('admins').child(auth.uid).exists()"},"userStatus":{".read":"auth != null && root.child('admins').child(auth.uid).exists()","$uid":{".read":"auth != null && auth.uid === $uid",".write":"auth != null && auth.uid === $uid"}}}}</pre>
     </div>
 
     <div id="addForm" style="display:none;background:var(--card);padding:20px;border-radius:16px;margin-bottom:20px;border:1px solid var(--glass-b)">
@@ -1460,26 +1460,50 @@ async function checkLinks(){
 }
 
 // ===== Auth & Routing =====
-// ===== Login preview + free taste (v11) =====
-const FREE_PREVIEW_IDS = ['t1', 't3']; // WhatsApp Link + QR: pure client-side, work without login
-function renderLoginPreview(){
+// ===== Login preview + free taste (v11/v12) =====
+const FREE_PREVIEW_TYPES = ['whatsapp-link', 'qr']; // pure client-side, work without login
+function pickPreviewTools(all){
+  const list = (all||[]).filter(t=>t && t.name);
+  const free = [];
+  FREE_PREVIEW_TYPES.forEach(ty=>{ const f = list.find(t=>t.type===ty && free.indexOf(t)===-1); if(f) free.push(f); });
+  const newest = list.filter(t=>free.indexOf(t)===-1).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).slice(0, 6);
+  return free.concat(newest);
+}
+function renderLoginPreview(list){
   const g = document.getElementById('loginPreview');
   if(!g) return;
-  g.innerHTML = DEFAULT_TOOLS.map((t, i)=>{
-    const free = FREE_PREVIEW_IDS.indexOf(t.id) !== -1;
-    const badge = free ? '<span class="pill on">FREE — Try karo</span>' : '<span class="pill off">🔒 Login Required</span>';
+  const items = (list && list.length ? list : DEFAULT_TOOLS).slice(0, 8);
+  g.innerHTML = items.map((t, i)=>{
+    const free = FREE_PREVIEW_TYPES.indexOf(t.type) !== -1;
+    const badge = free ? '<span class="pill on">FREE — Try karo</span>' : (isNewTool(t) ? '<span class="pill on new-pill">NEW</span> ' : '') + '<span class="pill off">🔒 Login Required</span>';
     const btn = free
-      ? '<button class="btn" onclick="openTool(\''+t.id+'\')">✨ Try Free</button>'
+      ? '<button class="btn" onclick="openFreePreview(\''+t.type+'\')">✨ Try Free</button>'
       : '<button class="btn ghost" onclick="showBuyModal()">🔒 Login ke baad</button>';
     return '<div class="card" style="--i:'+Math.min(i,8)+'"><div class="ic">'+esc(t.icon||'🛠️')+'</div><h3>'+esc(t.name)+'</h3><span class="cat">'+esc(t.category)+'</span> '+badge+'<p>'+esc(t.desc)+'</p><div class="card-actions">'+btn+'</div></div>';
   }).join('');
+}
+function openFreePreview(type){
+  const t = DEFAULT_TOOLS.find(x=>x.type===type);
+  if(t) openTool(t.id);
+}
+function loadLoginPreview(){
+  renderLoginPreview();
+  if(!FIREBASE_ON || !fbDb) return;
+  try {
+    const p = fbDb.ref('tools').once('value');
+    if(p && p.then) p.then(snap=>{
+      const v = snap.val();
+      const all = Array.isArray(v) ? v : (v ? Object.values(v) : []);
+      if(all.length) renderLoginPreview(pickPreviewTools(all));
+    }).catch(()=>{});
+  } catch(e){}
 }
 function showLogin(){
   document.getElementById('loginView').style.display='block';
   document.getElementById('mainView').style.display='none';
   document.getElementById('adminView').style.display='none';
   showPendingStatus();
-  renderLoginPreview();
+  loadLoginPreview();
 }
 function showPendingStatus(){
   const box = document.getElementById('pendingBox');
@@ -1868,7 +1892,7 @@ if (FIREBASE_ON && fbAuth) {
   showMain();
   startFirebaseSync();
 }
-window.__SMTK = {importToolsFromText, toolsJSONString, getTools:()=>tools, render, renderAdmin, showAdmin, DEFAULT_TOOLS, pwHTML, wcHTML, pcHTML, wqHTML, ccHTML, acHTML, bmiHTML, dcHTML, ucHTML, tcHTML, swHTML, ntHTML, emiHTML, rgHTML, zkHTML, recordUse, getStats:()=>statsCache, validatePaymentReq, normalizePKPhone, submitPayment, approvePayment, rejectPayment, renderPayments, showBuyModal, getPayments:()=>paymentsCache, PAYMENT_PRICE, PAYMENT_NUMBER, getDeviceId, newSessionToken, claimSession, startSessionListener, stopSessionListener, getSessionBound:()=>sessionBound, setPendingFreshLogin:v=>{pendingFreshLogin=!!v;}, getPendingFreshLogin:()=>pendingFreshLogin, toggleFav, getFavs, getRecents, shareTool, showPendingStatus, clearPendingReq, saveAnnouncement, clearAnnouncement, checkLinks, renderReferral, copyRefLink, dismissAnn, isNewTool, getMyReferrals:()=>myReferrals, markCashbackSent, refPhoneFor, aiPhotoHTML, aiPhotoGen, aiPhotoDownload, aiPhotoSample, aiPhotoUrl, aiPhotoRenderHist, getCurrentAiPhotoUrl:()=>currentAiPhotoUrl, aiChatHTML, aiChatSend, aiChatAsk, aiChatClear, newestTool, isNewestToday, startMyStatus, stopMyStatus, startStatusListener, isOnlineNow, fmtDT, getStatusCache:()=>statusCache, getUsersCache:()=>usersCache, renderLoginPreview, FREE_PREVIEW_IDS};
+window.__SMTK = {importToolsFromText, toolsJSONString, getTools:()=>tools, render, renderAdmin, showAdmin, DEFAULT_TOOLS, pwHTML, wcHTML, pcHTML, wqHTML, ccHTML, acHTML, bmiHTML, dcHTML, ucHTML, tcHTML, swHTML, ntHTML, emiHTML, rgHTML, zkHTML, recordUse, getStats:()=>statsCache, validatePaymentReq, normalizePKPhone, submitPayment, approvePayment, rejectPayment, renderPayments, showBuyModal, getPayments:()=>paymentsCache, PAYMENT_PRICE, PAYMENT_NUMBER, getDeviceId, newSessionToken, claimSession, startSessionListener, stopSessionListener, getSessionBound:()=>sessionBound, setPendingFreshLogin:v=>{pendingFreshLogin=!!v;}, getPendingFreshLogin:()=>pendingFreshLogin, toggleFav, getFavs, getRecents, shareTool, showPendingStatus, clearPendingReq, saveAnnouncement, clearAnnouncement, checkLinks, renderReferral, copyRefLink, dismissAnn, isNewTool, getMyReferrals:()=>myReferrals, markCashbackSent, refPhoneFor, aiPhotoHTML, aiPhotoGen, aiPhotoDownload, aiPhotoSample, aiPhotoUrl, aiPhotoRenderHist, getCurrentAiPhotoUrl:()=>currentAiPhotoUrl, aiChatHTML, aiChatSend, aiChatAsk, aiChatClear, newestTool, isNewestToday, startMyStatus, stopMyStatus, startStatusListener, isOnlineNow, fmtDT, getStatusCache:()=>statusCache, getUsersCache:()=>usersCache, renderLoginPreview, loadLoginPreview, pickPreviewTools, openFreePreview, FREE_PREVIEW_TYPES};
 </script>
 </body>
 </html>
